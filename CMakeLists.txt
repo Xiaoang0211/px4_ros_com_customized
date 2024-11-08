@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.9)
 project(px4_ros_com)
 
 # Default to C99
@@ -15,6 +15,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Enable testing and find Google Test
+include(CTest)
+enable_testing()
+find_package(GTest REQUIRED)
+
 # find dependencies
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -30,26 +35,18 @@ find_package(rclpy REQUIRED)
 find_package(gz-transport12 QUIET REQUIRED OPTIONAL_COMPONENTS log)
 set(GZ_TRANSPORT_VER ${gz-transport12_VERSION_MAJOR})
 
+# Add include directories
+# include_directories(include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+# include subdirectories for the library files
+add_subdirectory(src/lib/collision_prevention)
+add_subdirectory(src/lib/mathlib)
+add_subdirectory(src/lib/matrix)
 
 #################
 # Setup targets #
 #################
-
-include_directories(include)
-
-# Add frame_transforms lib
-add_library(frame_transforms SHARED src/lib/frame_transforms.cpp)
-ament_target_dependencies(frame_transforms Eigen3 geometry_msgs sensor_msgs)
-target_include_directories(frame_transforms PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
-	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-)
-
-
-# examples/listeners/sensor_combined_listener
-add_executable(sensor_combined_listener src/examples/listeners/sensor_combined_listener.cpp)
-ament_target_dependencies(sensor_combined_listener rclcpp px4_msgs)
-install(TARGETS sensor_combined_listener DESTINATION lib/${PROJECT_NAME})
 
 # examples/advertisers/drone_advertiser
 add_executable(drone_advertiser src/examples/advertisers/drone_advertiser.cpp)
@@ -58,26 +55,11 @@ ament_target_dependencies(drone_advertiser rclcpp px4_msgs OpenCV cv_bridge)
 target_link_libraries(drone_advertiser gz-transport${GZ_TRANSPORT_VER}::core)
 install(TARGETS drone_advertiser DESTINATION lib/${PROJECT_NAME})
 
-# examples/listeners/vehicle_gps_position_listener
-add_executable(vehicle_gps_position_listener src/examples/listeners/vehicle_gps_position_listener.cpp)
-ament_target_dependencies(vehicle_gps_position_listener rclcpp px4_msgs)
-install(TARGETS vehicle_gps_position_listener DESTINATION lib/${PROJECT_NAME})
-
-# examples/advertisers/debug_vect_advertiser
-add_executable(debug_vect_advertiser src/examples/advertisers/debug_vect_advertiser.cpp)
-ament_target_dependencies(debug_vect_advertiser rclcpp px4_msgs)
-install(TARGETS debug_vect_advertiser DESTINATION lib/${PROJECT_NAME})
-
 # examples/offboard/offboard_control
 add_executable(offboard_control src/examples/offboard/offboard_control.cpp)
 ament_target_dependencies(offboard_control rclcpp px4_msgs)
+target_link_libraries(offboard_control CollisionPrevention mathlib matrix)
 install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
-
-# examples/offboard/offboard_control_srv
-add_executable(offboard_control_srv src/examples/offboard/offboard_control_srv.cpp)
-ament_target_dependencies(offboard_control_srv rclcpp px4_msgs)
-install(TARGETS offboard_control_srv DESTINATION lib/${PROJECT_NAME})
-
 
 ############
 # Install ##
@@ -86,21 +68,45 @@ install(TARGETS offboard_control_srv DESTINATION lib/${PROJECT_NAME})
 # Export information to downstream packages
 ament_export_dependencies(ament_cmake rclcpp rosidl_default_runtime eigen3_cmake_module Eigen3 px4_msgs geometry_msgs sensor_msgs)
 
-ament_export_targets(export_frame_transforms HAS_LIBRARY_TARGET)
-
 ament_export_include_directories(include)
-ament_export_libraries(frame_transforms)
+
+
+ament_export_targets(export_CollisionPrevention HAS_LIBRARY_TARGET)
+ament_export_targets(export_mathlib HAS_LIBRARY_TARGET)
+ament_export_targets(export_matrix HAS_LIBRARY_TARGET)
 
 # Install header files
-install(DIRECTORY include/${PROJECT_NAME}/ DESTINATION include/${PROJECT_NAME})
+install(DIRECTORY include/
+		DESTINATION include/)
 
-install(TARGETS frame_transforms
-	EXPORT export_frame_transforms
+# Install CollisionPrevention library
+install(TARGETS CollisionPrevention
+	EXPORT export_CollisionPrevention
 	ARCHIVE DESTINATION lib
 	LIBRARY DESTINATION lib
 	RUNTIME DESTINATION bin
 	INCLUDES DESTINATION include
 )
+
+# Install header files for CollisionPrevention
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/lib/collision_prevention/
+    DESTINATION include/lib/collision_prevention
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+)
+
+# Install headers for mathlib
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/lib/mathlib/
+    DESTINATION include/lib/mathlib
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+)
+
+# Install headers for matrix
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/lib/matrix/
+    DESTINATION include/lib/matrix
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+install(TARGETS mathlib EXPORT export_mathlib)
+install(TARGETS matrix EXPORT export_matrix)
 
 # Install launch files.
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
