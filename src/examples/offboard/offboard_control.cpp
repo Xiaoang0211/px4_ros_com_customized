@@ -44,6 +44,7 @@
 #include <px4_msgs/msg/vehicle_control_mode.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <stdint.h>
+#include </lib/collision_prevention/CollisionPrevention.hpp>
 
 #include <chrono>
 #include <iostream>

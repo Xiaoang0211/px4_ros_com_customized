@@ -37,7 +37,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <matrix/matrix/math.hpp>
+#include <lib/matrix/math.hpp>
 
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
 

@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include <px4_platform_common/defines.h>
+#include <px4/defines.h>
 
 namespace matrix
 {

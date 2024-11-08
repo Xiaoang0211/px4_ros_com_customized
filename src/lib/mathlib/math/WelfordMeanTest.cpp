@@ -33,8 +33,8 @@
 
 #include <gtest/gtest.h>
 #include <random>
-#include <lib/matrix/matrix/math.hpp>
-#include "WelfordMean.hpp"
+#include <lib/matrix/math.hpp>
+#include <lib/mathlib/math/WelfordMean.hpp>
 
 using namespace math;
 using matrix::Vector3f;

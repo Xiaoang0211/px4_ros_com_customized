@@ -38,7 +38,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <matrix/math.hpp>
+#include <lib/matrix/math.hpp>
 #include <lib/mathlib/math/filter/second_order_reference_model.hpp>
 
 using math::SecondOrderReferenceModel;

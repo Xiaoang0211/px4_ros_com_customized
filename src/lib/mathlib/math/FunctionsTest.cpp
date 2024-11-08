@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 #include <gtest/gtest.h>
-#include "Functions.hpp"
+#include <lib/mathlib/math/Functions.hpp>
 
 using namespace math;
 

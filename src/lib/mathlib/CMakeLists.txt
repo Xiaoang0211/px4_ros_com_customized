@@ -1,51 +1,29 @@
-############################################################################
-#
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-# 3. Neither the name PX4 nor the names of its contributors may be
-#    used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-#
-############################################################################
+cmake_minimum_required(VERSION 3.8)
 
-px4_add_library(mathlib
-	math/test/test.cpp
-	math/filter/LowPassFilter2p.hpp
-	math/filter/MedianFilter.hpp
-	math/filter/NotchFilter.hpp
-	math/filter/second_order_reference_model.hpp
+add_library(mathlib INTERFACE)
+
+# Specify include directories for mathlib
+target_include_directories(mathlib INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
-px4_add_unit_gtest(SRC math/test/LowPassFilter2pVector3fTest.cpp LINKLIBS mathlib)
-px4_add_unit_gtest(SRC math/test/AlphaFilterTest.cpp)
-px4_add_unit_gtest(SRC math/test/MedianFilterTest.cpp)
-px4_add_unit_gtest(SRC math/test/NotchFilterTest.cpp)
-px4_add_unit_gtest(SRC math/test/second_order_reference_model_test.cpp)
-px4_add_unit_gtest(SRC math/FunctionsTest.cpp)
-px4_add_unit_gtest(SRC math/test/UtilitiesTest.cpp)
-px4_add_unit_gtest(SRC math/WelfordMeanTest.cpp)
-px4_add_unit_gtest(SRC math/WelfordMeanVectorTest.cpp)
-px4_add_unit_gtest(SRC math/MaxDistanceToCircleTest.cpp)
+target_link_libraries(mathlib INTERFACE Eigen3::Eigen)
+# Define unit tests for mathlib
+function(add_mathlib_test test_name source_file)
+    add_executable(${test_name} ${source_file})
+    target_link_libraries(${test_name} PRIVATE mathlib GTest::GTest GTest::Main)
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endfunction()
+
+# Add each test using the add_mathlib_test function
+add_mathlib_test(LowPassFilter2pVector3fTest math/test/LowPassFilter2pVector3fTest.cpp)
+add_mathlib_test(AlphaFilterTest math/test/AlphaFilterTest.cpp)
+add_mathlib_test(MedianFilterTest math/test/MedianFilterTest.cpp)
+add_mathlib_test(NotchFilterTest math/test/NotchFilterTest.cpp)
+add_mathlib_test(second_order_reference_model_test math/test/second_order_reference_model_test.cpp)
+add_mathlib_test(FunctionsTest math/FunctionsTest.cpp)
+add_mathlib_test(UtilitiesTest math/test/UtilitiesTest.cpp)
+add_mathlib_test(WelfordMeanTest math/WelfordMeanTest.cpp)
+add_mathlib_test(WelfordMeanVectorTest math/WelfordMeanVectorTest.cpp)
+add_mathlib_test(MaxDistanceToCircleTest math/MaxDistanceToCircleTest.cpp)

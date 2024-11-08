@@ -40,7 +40,7 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <vector>
-#include <mathlib/mathlib.h>
+#include <lib/mathlib/mathlib.h>
 
 using namespace math::Utilities;
 

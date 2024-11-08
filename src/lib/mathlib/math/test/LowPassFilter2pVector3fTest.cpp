@@ -37,8 +37,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <matrix/matrix/math.hpp>
-#include <px4_platform_common/defines.h>
+#include <lib/matrix/math.hpp>
+#include <px4/defines.h>
 
 #include <lib/mathlib/math/filter/LowPassFilter2p.hpp>
 

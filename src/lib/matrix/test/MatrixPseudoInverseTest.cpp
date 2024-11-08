@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 #include <gtest/gtest.h>
-#include <matrix/PseudoInverse.hpp>
+#include <lib/matrix/PseudoInverse.hpp>
 
 using namespace matrix;
 

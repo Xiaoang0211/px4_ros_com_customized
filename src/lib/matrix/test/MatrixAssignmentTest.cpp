@@ -34,7 +34,7 @@
 #include <cmath>
 
 #include <gtest/gtest.h>
-#include <matrix/math.hpp>
+#include <lib/matrix/math.hpp>
 
 using namespace matrix;
 

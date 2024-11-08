@@ -43,7 +43,7 @@
 #pragma once
 
 #include <float.h>
-#include <mathlib/math/Functions.hpp>
+#include <lib/mathlib/math/Functions.hpp>
 
 using namespace math;
 

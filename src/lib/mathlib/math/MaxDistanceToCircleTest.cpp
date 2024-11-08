@@ -32,10 +32,10 @@
  ****************************************************************************/
 
 #include <gtest/gtest.h>
-#include <matrix/matrix/math.hpp>
-#include "Functions.hpp"
+#include <lib/matrix/math.hpp>
+#include <lib/mathlib/math/Functions.hpp>
 
-#include "TrajMath.hpp"
+#include <lib/mathlib/math/TrajMath.hpp>
 
 using namespace math;
 using matrix::Vector2f;

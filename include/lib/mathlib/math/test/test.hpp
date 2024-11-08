@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2012 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,55 +32,28 @@
  ****************************************************************************/
 
 /**
- * @file collisionprevention_params.c
+ * @file test.hpp
  *
- * Parameters defined by the collisionprevention lib.
- *
- * @author Tanja Baumann <tanja@auterion.com>
+ * Controller library code
  */
 
-/**
- * Minimum distance the vehicle should keep to all obstacles
- *
- * Only used in Position mode. Collision avoidance is disabled by setting this parameter to a negative value
- *
- * @min -1
- * @max 15
- * @unit m
- * @group Multicopter Position Control
- */
-PARAM_DEFINE_FLOAT(CP_DIST, 0.2f);
+#pragma once
 
-/**
- * Average delay of the range sensor message plus the tracking delay of the position controller in seconds
- *
- * Only used in Position mode.
- *
- * @min 0
- * @max 1
- * @unit s
- * @group Multicopter Position Control
- */
-PARAM_DEFINE_FLOAT(CP_DELAY, 0.4f);
+//#include <assert.h>
+//#include <time.h>
+//#include <stdlib.h>
 
-/**
- * Angle left/right from the commanded setpoint by which the collision prevention algorithm can choose to change the setpoint direction
- *
- * Only used in Position mode.
- *
- * @min 0
- * @max 90
- * @unit deg
- * @group Multicopter Position Control
- */
-PARAM_DEFINE_FLOAT(CP_GUIDE_ANG, 30.f);
+bool equal(float a, float b, float eps = 1e-5);
 
-/**
- * Boolean to allow moving into directions where there is no sensor data (outside FOV)
- *
- * Only used in Position mode.
- *
- * @boolean
- * @group Multicopter Position Control
- */
-PARAM_DEFINE_INT32(CP_GO_NO_DATA, 0);
+bool greater_than(float a, float b);
+
+bool less_than(float a, float b);
+
+bool greater_than_or_equal(float a, float b);
+
+bool less_than_or_equal(float a, float b);
+
+void float2SigExp(
+	const float &num,
+	float &sig,
+	int &exp);

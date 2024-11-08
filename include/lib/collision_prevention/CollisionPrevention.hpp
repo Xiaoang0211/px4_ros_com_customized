@@ -43,10 +43,10 @@
 #pragma once
 
 #include <float.h>
-#include <commander/px4_custom_mode.h>
+#include <px4/px4_custom_mode.h>
 #include <chrono>
-#include <mathlib/mathlib.h>
-#include <matrix/matrix/math.hpp>
+#include <lib/mathlib/mathlib.h>
+#include <lib/matrix/math.hpp>
 #include <limits>
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/collision_constraints.hpp>
@@ -54,8 +54,9 @@
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
 
-using hrt_abstime = std::chrono::steady_clock::time_point;
-using hrt_duration = std::chrono::nanoseconds;
+using hrt_abstime = uint64_t; // in nano seconds
+using hrt_duration = uint64_t;
+using namespace px4_msgs::msg;
 
 class CollisionPrevention : public rclcpp::Node
 {
@@ -80,7 +81,7 @@ public:
 
 protected:
 
-	px4_msgs::msg::ObstacleDistance _obstacle_map_body_frame;
+	ObstacleDistance _obstacle_map_body_frame;
 	bool _data_fov[sizeof(_obstacle_map_body_frame.distances) / sizeof(_obstacle_map_body_frame.distances[0])];
 	uint64_t _data_timestamps[sizeof(_obstacle_map_body_frame.distances) / sizeof(_obstacle_map_body_frame.distances[0])];
 	uint16_t _data_maxranges[sizeof(_obstacle_map_body_frame.distances) / sizeof(
@@ -90,7 +91,7 @@ protected:
 	 * Updates obstacle distance message with measurement from offboard
 	 * @param obstacle, obstacle_distance message to be updated
 	 */
-	void _addObstacleSensorData(const obstacle_distance_s &obstacle, const matrix::Quatf &vehicle_attitude);
+	void _addObstacleSensorData(const ObstacleDistance &obstacle, const matrix::Quatf &vehicle_attitude);
 
 	/**
 	 * Computes an adaption to the setpoint direction to guide towards free space
@@ -120,27 +121,27 @@ private:
 	bool _interfering{false};		/**< states if the collision prevention interferes with the user input */
 	bool _was_active{false};		/**< states if the collision prevention interferes with the user input */
 
-	rclcpp::Publisher<px4_msgs::msg::CollisionConstraints>::SharedPtr _collision_constraints_pub;
-	rclcpp::Publisher<px4_msgs::msg::ObstacleDistance>::SharedPtr _obstacle_distance_pub;
-	rclcpp::Publisher<px4_msgs::msg::VehicleCommand>::SharedPtr _vehicle_command_pub;
+	rclcpp::Publisher<CollisionConstraints>::SharedPtr _collision_constraints_pub;
+	rclcpp::Publisher<ObstacleDistance>::SharedPtr _obstacle_distance_pub;
+	rclcpp::Publisher<VehicleCommand>::SharedPtr _vehicle_command_pub;
 
-	rclcpp::Subscription<px4_msgs::msg::ObstacleDistance>::SharedPtr _obstacle_distance_sub;
-	rclcpp::Subscription<px4_msgs::msg::VehicleAttitude>::SharedPtr _vehicle_attitude_sub;
+	rclcpp::Subscription<ObstacleDistance>::SharedPtr _obstacle_distance_sub;
+	rclcpp::Subscription<VehicleAttitude>::SharedPtr _vehicle_attitude_sub;
 
 	// the messages streamed through subscription
-    px4_msgs::msg::ObstacleDistance _latest_obstacle_distance;
-    px4_msgs::msg::VehicleAttitude _latest_vehicle_attitude;
+    ObstacleDistance _latest_obstacle_distance;
+    VehicleAttitude _latest_vehicle_attitude;
 
 	// the snapshots of the streamed messages that we use in the calculation 
-	px4_msgs::msg::ObstacleDistance obstacle_distance;
-    px4_msgs::msg::VehicleAttitude vehicle_attitude;
+	ObstacleDistance obstacle_distance;
+    VehicleAttitude vehicle_attitude;
 
 	// flags for checking if new message is received
     bool _new_obstacle_distance_received;
     bool _new_vehicle_attitude_received;
 
-	static constexpr auto RANGE_STREAM_TIMEOUT_US = std::chrono::nanoseconds(500'000);
-	static constexpr auto TIMEOUT_HOLD_US = std::chrono::seconds(5);
+	static constexpr RANGE_STREAM_TIMEOUT_US{0};
+	static constexpr TIMEOUT_HOLD_US{0};
 
 	hrt_abstime _last_timeout_warning;
 	hrt_abstime _time_activated;
@@ -174,7 +175,7 @@ private:
 	 * Publishes obstacle_distance message with fused data from offboard and from distance sensors
 	 * @param obstacle, obstacle_distance message to be publsihed
 	 */
-	void _publishObstacleDistance(obstacle_distance_s &obstacle);
+	void _publishObstacleDistance(ObstacleDistance &obstacle);
 
 	/**
 	 * Aggregates the sensor data into a internal obstacle map in body frame

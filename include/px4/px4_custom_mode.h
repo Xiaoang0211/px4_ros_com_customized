@@ -96,7 +96,8 @@ union px4_custom_mode {
 };
 
 #ifdef DEFINE_GET_PX4_CUSTOM_MODE
-#include <uORB/topics/vehicle_status.h>
+#include <px4_msgs/msg/vehicle_status.hpp>
+using namespace px4_msgs::msg;
 
 static inline union px4_custom_mode get_px4_custom_mode(uint8_t nav_state)
 {
@@ -104,125 +105,125 @@ static inline union px4_custom_mode get_px4_custom_mode(uint8_t nav_state)
 	custom_mode.data = 0;
 
 	switch (nav_state) {
-	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
+	case VehicleStatus::NAVIGATION_STATE_MANUAL:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_MANUAL;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
+	case VehicleStatus::NAVIGATION_STATE_ALTCTL:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_ALTCTL;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+	case VehicleStatus::NAVIGATION_STATE_POSCTL:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_POSCTL;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_POSITION_SLOW:
+	case VehicleStatus::NAVIGATION_STATE_POSITION_SLOW:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_POSCTL;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_POSCTL_SLOW;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_MISSION:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_MISSION;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_LOITER:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_RTL:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_RTL;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_ACRO:
+	case VehicleStatus::NAVIGATION_STATE_ACRO:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_ACRO;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
+	case VehicleStatus::NAVIGATION_STATE_DESCEND:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_LAND;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
+	case VehicleStatus::NAVIGATION_STATE_TERMINATION:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_TERMINATION;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+	case VehicleStatus::NAVIGATION_STATE_OFFBOARD:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_OFFBOARD;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_STAB:
+	case VehicleStatus::NAVIGATION_STATE_STAB:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_STABILIZED;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_TAKEOFF:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_TAKEOFF;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_LAND:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_LAND:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_LAND;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_FOLLOW_TARGET;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_PRECLAND:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_ORBIT:
+	case VehicleStatus::NAVIGATION_STATE_ORBIT:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_POSCTL;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_POSCTL_ORBIT;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF:
+	case VehicleStatus::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_AUTO_VTOL_TAKEOFF;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL1:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL1:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL1;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL2:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL2:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL2;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL3:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL3:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL3;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL4:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL4:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL4;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL5:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL5:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL5;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL6:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL6:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL6;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL7:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL7:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL7;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_EXTERNAL8:
+	case VehicleStatus::NAVIGATION_STATE_EXTERNAL8:
 		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_AUTO;
 		custom_mode.sub_mode = PX4_CUSTOM_SUB_MODE_EXTERNAL8;
 		break;

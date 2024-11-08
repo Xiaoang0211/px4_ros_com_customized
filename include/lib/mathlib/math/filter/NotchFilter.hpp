@@ -42,10 +42,10 @@
 
 #pragma once
 
-#include <mathlib/math/Functions.hpp>
+#include <lib/mathlib/math/Functions.hpp>
 #include <cmath>
 #include <float.h>
-#include <matrix/math.hpp>
+#include <lib/matrix/math.hpp>
 
 namespace math
 {

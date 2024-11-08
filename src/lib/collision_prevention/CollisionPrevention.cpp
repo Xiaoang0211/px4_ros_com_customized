@@ -37,9 +37,10 @@
  *
  */
 
-#include "CollisionPrevention.hpp"
+#include <lib/collision_prevention/CollisionPrevention.hpp>
 
 using namespace matrix;
+using namespace px4_msgs::msg;
 
 namespace
 {
@@ -92,7 +93,7 @@ CollisionPrevention::CollisionPrevention() :
 
 	// initialize internal obstacle map
 	_obstacle_map_body_frame.timestamp = getTime();
-	_obstacle_map_body_frame.frame = px4_msgs::msg::ObstacleDistance::MAV_FRAME_BODY_FRD;
+	_obstacle_map_body_frame.frame = ObstacleDistance::MAV_FRAME_BODY_FRD;
 	_obstacle_map_body_frame.increment = INTERNAL_MAP_INCREMENT_DEG;
 	_obstacle_map_body_frame.min_distance = UINT16_MAX;
 	_obstacle_map_body_frame.max_distance = 0;
@@ -108,22 +109,22 @@ CollisionPrevention::CollisionPrevention() :
 	}
 
 	//initialize publishers of px4 topics
-	_collision_constraints_pub = this->create_publisher<px4_msgs::msg::CollisionConstraints>("collision_constraints", 10);
-	_obstacle_distance_pub = this->create_publisher<px4_msgs::msg::ObstacleDistance>("obstacle_distance_fused", 10);
-	_vehicle_command_pub = this->create_publisher<px4_msgs::msg::VehicleCommand>("vehicle_command", 10);
+	_collision_constraints_pub = this->create_publisher<CollisionConstraints>("collision_constraints", 10);
+	_obstacle_distance_pub = this->create_publisher<ObstacleDistance>("obstacle_distance_fused", 10);
+	_vehicle_command_pub = this->create_publisher<VehicleCommand>("vehicle_command", 10);
 
 	// initialize subscribers of px4 topics obstacle_distance and vehicle_attitude
-	_obstacle_distance_sub = this->create_subscription<px4_msgs::msg::ObstacleDistance>(
+	_obstacle_distance_sub = this->create_subscription<ObstacleDistance>(
 		"obstacle_distance", 10,
-		[this](const px4_msgs::msg::ObstacleDistance::SharedPtr msg) {
+		[this](const ObstacleDistance::SharedPtr msg) {
 			this->_latest_obstacle_distance = *msg;
 			this->_new_obstacle_distance_received = true;
 		}
 	);
 
-	_vehicle_attitude_sub = this->create_subscription<px4_msgs::msg::VehicleAttitude>(
+	_vehicle_attitude_sub = this->create_subscription<VehicleAttitude>(
 		"obstacle_distance", 10,
-		[this](const px4_msgs::msg::VehicleAttitude::SharedPtr msg) {
+		[this](const VehicleAttitude::SharedPtr msg) {
 			this->_latest_vehicle_attitude = *msg;
 			this->_new_vehicle_attitude_received = true;
 		}
@@ -159,7 +160,7 @@ bool CollisionPrevention::is_active()
 }
 
 void
-CollisionPrevention::_addObstacleSensorData(const px4_msgs::msg::ObstacleDistance &obstacle, const matrix::Quatf &vehicle_attitude)
+CollisionPrevention::_addObstacleSensorData(const ObstacleDistance &obstacle, const matrix::Quatf &vehicle_attitude)
 {
 	int msg_index = 0;
 	float vehicle_orientation_deg = math::degrees(Eulerf(vehicle_attitude).psi());
@@ -459,7 +460,7 @@ CollisionPrevention::modifySetpoint(Vector2f &original_setpoint, const float max
 	_interfering = currently_interfering;
 
 	// publish constraints
-	collision_constraints_s	constraints{};
+	CollisionConstraints	constraints{};
 	constraints.timestamp = getTime();
 	original_setpoint.copyTo(constraints.original_setpoint);
 	new_setpoint.copyTo(constraints.adapted_setpoint);
@@ -470,9 +471,9 @@ CollisionPrevention::modifySetpoint(Vector2f &original_setpoint, const float max
 
 void CollisionPrevention::_publishVehicleCmdDoLoiter()
 {
-	vehicle_command_s command{};
+	VehicleCommand command{};
 	command.timestamp = getTime();
-	command.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+	command.command = VehicleCommand::VEHICLE_CMD_DO_SET_MODE;
 	command.param1 = (float)1; // base mode
 	command.param3 = (float)0; // sub mode
 	command.target_system = 1;

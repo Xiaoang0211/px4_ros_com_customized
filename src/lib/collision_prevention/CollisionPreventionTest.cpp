@@ -32,7 +32,8 @@
  ****************************************************************************/
 
 #include <gtest/gtest.h>
-#include "CollisionPrevention.hpp"
+#include <lib/collision_prevention/CollisionPrevention.hpp>
+
 
 // to run: make tests TESTFILTER=CollisionPrevention
 hrt_abstime mocked_time = 0;

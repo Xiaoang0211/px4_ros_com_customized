@@ -40,7 +40,7 @@
 #pragma once
 
 #include <sys/ioctl.h>
-#include <px4_boardconfig.h>
+#include "px4_boardconfig.h"
 
 
 /****************************************************************************
