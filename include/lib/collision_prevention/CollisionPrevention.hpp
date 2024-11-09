@@ -57,6 +57,7 @@
 using hrt_abstime = uint64_t; // in nano seconds
 using hrt_duration = uint64_t;
 using namespace px4_msgs::msg;
+using namespace std::chrono_literals;
 
 class CollisionPrevention : public rclcpp::Node
 {
@@ -87,6 +88,14 @@ protected:
 	uint16_t _data_maxranges[sizeof(_obstacle_map_body_frame.distances) / sizeof(
 										    _obstacle_map_body_frame.distances[0])]; /**< in cm */
 
+	// the messages streamed through subscription
+    ObstacleDistance _latest_obstacle_distance;
+    VehicleAttitude _latest_vehicle_attitude;
+
+	// flags for checking if new message is received
+    bool _new_obstacle_distance_received;
+    bool _new_vehicle_attitude_received;
+
 	/**
 	 * Updates obstacle distance message with measurement from offboard
 	 * @param obstacle, obstacle_distance message to be updated
@@ -109,11 +118,21 @@ protected:
 	 */
 	bool _enterData(int map_index, float sensor_range, float sensor_reading);
 
+	/**
+	 * Computes collision free setpoints
+	 * @param setpoint, setpoint before collision prevention intervention
+	 * @param curr_pos, current vehicle position
+	 * @param curr_vel, current vehicle velocity
+	 */
+	void _calculateConstrainedSetpoint(matrix::Vector2f &setpoint, const matrix::Vector2f &curr_pos,
+					   const matrix::Vector2f &curr_vel);
+
+
 
 	//Timing functions. Necessary to mock time in the tests
 	virtual hrt_abstime hrt_absolute_time();
 	virtual hrt_abstime getTime();
-	virtual hrt_duration getElapsedTime(const hrt_abstime& ptr);
+	virtual hrt_duration getElapsedTime(const hrt_abstime& start_time);
 
 
 private:
@@ -128,23 +147,15 @@ private:
 	rclcpp::Subscription<ObstacleDistance>::SharedPtr _obstacle_distance_sub;
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr _vehicle_attitude_sub;
 
-	// the messages streamed through subscription
-    ObstacleDistance _latest_obstacle_distance;
-    VehicleAttitude _latest_vehicle_attitude;
-
 	// the snapshots of the streamed messages that we use in the calculation 
 	ObstacleDistance obstacle_distance;
     VehicleAttitude vehicle_attitude;
 
-	// flags for checking if new message is received
-    bool _new_obstacle_distance_received;
-    bool _new_vehicle_attitude_received;
+	static constexpr uint64_t RANGE_STREAM_TIMEOUT_US = std::chrono::duration_cast<std::chrono::nanoseconds>(500ms).count();
+	static constexpr uint64_t TIMEOUT_HOLD_US = std::chrono::duration_cast<std::chrono::nanoseconds>(5s).count();
 
-	static constexpr RANGE_STREAM_TIMEOUT_US{0};
-	static constexpr TIMEOUT_HOLD_US{0};
-
-	hrt_abstime _last_timeout_warning;
-	hrt_abstime _time_activated;
+	hrt_abstime _last_timeout_warning{0};
+	hrt_abstime _time_activated{0};
 
 	// requires change
 	float _param_cp_dist;
@@ -154,15 +165,6 @@ private:
     float _param_mpc_xy_p;
     float _param_mpc_jerk_max;
     float _param_mpc_acc_hor;
-
-	/**
-	 * Computes collision free setpoints
-	 * @param setpoint, setpoint before collision prevention intervention
-	 * @param curr_pos, current vehicle position
-	 * @param curr_vel, current vehicle velocity
-	 */
-	void _calculateConstrainedSetpoint(matrix::Vector2f &setpoint, const matrix::Vector2f &curr_pos,
-					   const matrix::Vector2f &curr_vel);
 
 	/**
 	 * Publishes collision_constraints message

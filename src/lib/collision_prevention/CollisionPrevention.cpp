@@ -132,19 +132,37 @@ CollisionPrevention::CollisionPrevention() :
 
 }
 
-hrt_abstime hrt_absolute_time()
-{
-	return std::chrono::steady_clock::now();
+/**
+ * @brief returing system-wide real time since unix epoch
+ * 
+ * @return hrt_abstime: uint64_t, in nanoseconds
+ */
+hrt_abstime CollisionPrevention::hrt_absolute_time()
+{	
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(
+		std::chrono::system_clock::now().time_since_epoch()
+	).count();
 }
 
+/**
+ * @brief getting system-wide real time since unix epoch
+ * 
+ * @return hrt_abstime: uint64_t, in nanoseconds
+ */
 hrt_abstime CollisionPrevention::getTime()
 {
 	return hrt_absolute_time();
 }
 
-hrt_duration CollisionPrevention::getElapsedTime(const hrt_abstime& ptr)
+/**
+ * @brief returning the time duration given time points (absolute system time)
+ * 
+ * @param ptr 
+ * @return hrt_duration: uint64_t, nanoseconds
+ */
+hrt_duration CollisionPrevention::getElapsedTime(const hrt_abstime& start_time)
 {
-	return std::chrono::duration_cast<hrt_duration>(hrt_absolute_time() - ptr);
+	return hrt_absolute_time() - start_time;
 }
 
 bool CollisionPrevention::is_active()
@@ -252,14 +270,14 @@ CollisionPrevention::_updateObstacleMap()
 		vehicle_attitude = _latest_vehicle_attitude;
 
 		// Update map with obstacle data if the data is not stale
-		if (getElapsedTime(&obstacle_distance.timestamp) < RANGE_STREAM_TIMEOUT_US && obstacle_distance.increment > 0.f) {
+		if (getElapsedTime(obstacle_distance.timestamp) < RANGE_STREAM_TIMEOUT_US && obstacle_distance.increment > 0.f) {
 			//update message description
 			_obstacle_map_body_frame.timestamp = math::max(_obstacle_map_body_frame.timestamp, obstacle_distance.timestamp);
 			_obstacle_map_body_frame.max_distance = math::max(_obstacle_map_body_frame.max_distance,
 								obstacle_distance.max_distance);
 			_obstacle_map_body_frame.min_distance = math::min(_obstacle_map_body_frame.min_distance,
 								obstacle_distance.min_distance);
-			matrix::Quatf quat = Quatf(vehicle_attitude.q);
+			matrix::Quatf quat = Quatf(vehicle_attitude.q.data());
 			_addObstacleSensorData(obstacle_distance, quat);
 		}
 	}
@@ -331,7 +349,7 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 	const float xy_p = _param_mpc_xy_p;
 	const float max_jerk = _param_mpc_jerk_max;
 	const float max_accel = _param_mpc_acc_hor;
-	const matrix::Quatf attitude = Quatf(vehicle_attitude.q);
+	const matrix::Quatf attitude = Quatf(vehicle_attitude.q.data());
 	const float vehicle_yaw_angle_rad = Eulerf(attitude).psi();
 
 	const float setpoint_length = setpoint.norm();
@@ -429,10 +447,10 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 		setpoint = setpoint * vel_max;
 
 		// if distance data is stale, switch to Loiter
-		if (getElapsedTime(&_last_timeout_warning) > std::chrono::seconds(1) && getElapsedTime(&_time_activated) > std::chrono::seconds(1)) {
+		if (getElapsedTime(_last_timeout_warning) > 1'000'000'000 && getElapsedTime(_time_activated) > 1'000'000'000) {
 
 			if ((constrain_time - _obstacle_map_body_frame.timestamp) > TIMEOUT_HOLD_US
-			    && getElapsedTime(&_time_activated) > TIMEOUT_HOLD_US) {
+			    && getElapsedTime(_time_activated) > TIMEOUT_HOLD_US) {
 				_publishVehicleCmdDoLoiter();
 			}
 
@@ -462,9 +480,9 @@ CollisionPrevention::modifySetpoint(Vector2f &original_setpoint, const float max
 	// publish constraints
 	CollisionConstraints	constraints{};
 	constraints.timestamp = getTime();
-	original_setpoint.copyTo(constraints.original_setpoint);
-	new_setpoint.copyTo(constraints.adapted_setpoint);
-	_constraints_pub->publish(constraints);
+	original_setpoint.copyTo(constraints.original_setpoint.data());
+	new_setpoint.copyTo(constraints.adapted_setpoint.data());
+	_collision_constraints_pub->publish(constraints);
 
 	original_setpoint = new_setpoint;
 }
