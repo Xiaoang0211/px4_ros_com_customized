@@ -48,7 +48,6 @@
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/math.hpp>
 #include <limits>
-#include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/collision_constraints.hpp>
 #include <px4_msgs/msg/obstacle_distance.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
@@ -59,16 +58,41 @@ using hrt_duration = uint64_t;
 using namespace px4_msgs::msg;
 using namespace std::chrono_literals;
 
-class CollisionPrevention : public rclcpp::Node
+struct CollisionPreventionParameters
+{
+	float cp_dist;
+	float cp_delay;
+	float cp_guide_ang;
+	bool cp_go_nodata;
+	float mpc_xy_p;
+	float mpc_jerk_max;
+	float mpc_acc_hor;
+}
+
+class CollisionPrevention
 {
 public:
-	CollisionPrevention();
+	CollisionPrevention(const CollisionPreventionParameters& params);
 	~CollisionPrevention() override = default;
 
 	/**
 	 * Returns true if Collision Prevention is running
 	 */
 	bool is_active();
+
+	/**
+	 * @brief Setters for input data
+	 * 
+	 */
+	void setObstacleDistance(const ObstacleDistance& msg);
+	void setVehicleAttitude(const VehicleAttitude& msg);
+
+	/**
+	 * @brief Getters for output data
+	 * 
+	 */
+	void getCollisionConstraints(CollisionConstraints& msg);
+	void getObstacleDistanceFused(ObstacleDistance& msg);
 
 	/**
 	 * Computes collision free setpoints
@@ -127,66 +151,29 @@ protected:
 	void _calculateConstrainedSetpoint(matrix::Vector2f &setpoint, const matrix::Vector2f &curr_pos,
 					   const matrix::Vector2f &curr_vel);
 
-
-
 	//Timing functions. Necessary to mock time in the tests
-	virtual hrt_abstime hrt_absolute_time();
 	virtual hrt_abstime getTime();
 	virtual hrt_duration getElapsedTime(const hrt_abstime& start_time);
 
-
 private:
+	// Parameters
+	CollisionPreventionParameters _params;
 
 	bool _interfering{false};		/**< states if the collision prevention interferes with the user input */
 	bool _was_active{false};		/**< states if the collision prevention interferes with the user input */
 
-	rclcpp::Publisher<CollisionConstraints>::SharedPtr _collision_constraints_pub;
-	rclcpp::Publisher<ObstacleDistance>::SharedPtr _obstacle_distance_pub;
-	rclcpp::Publisher<VehicleCommand>::SharedPtr _vehicle_command_pub;
-
-	rclcpp::Subscription<ObstacleDistance>::SharedPtr _obstacle_distance_sub;
-	rclcpp::Subscription<VehicleAttitude>::SharedPtr _vehicle_attitude_sub;
-
-	// the snapshots of the streamed messages that we use in the calculation 
+	// the snapshots of the streamed input messages that we use in the calculation 
 	ObstacleDistance obstacle_distance;
     VehicleAttitude vehicle_attitude;
 
-	static constexpr uint64_t RANGE_STREAM_TIMEOUT_US = std::chrono::duration_cast<std::chrono::nanoseconds>(500ms).count();
-	static constexpr uint64_t TIMEOUT_HOLD_US = std::chrono::duration_cast<std::chrono::nanoseconds>(5s).count();
+	// constraints should be published by the ros node OffboardControl
+	CollisionConstraints constraints;
 
 	hrt_abstime _last_timeout_warning{0};
 	hrt_abstime _time_activated{0};
-
-	// requires change
-	float _param_cp_dist;
-	float _param_cp_delay;
-    float _param_cp_guide_ang;
-    bool _param_cp_go_nodata;
-    float _param_mpc_xy_p;
-    float _param_mpc_jerk_max;
-    float _param_mpc_acc_hor;
-
-	/**
-	 * Publishes collision_constraints message
-	 * @param original_setpoint, setpoint before collision prevention intervention
-	 * @param adapted_setpoint, collision prevention adaped setpoint
-	 */
-	void _publishConstrainedSetpoint(const matrix::Vector2f &original_setpoint, const matrix::Vector2f &adapted_setpoint);
-
-	/**
-	 * Publishes obstacle_distance message with fused data from offboard and from distance sensors
-	 * @param obstacle, obstacle_distance message to be publsihed
-	 */
-	void _publishObstacleDistance(ObstacleDistance &obstacle);
 
 	/**
 	 * Aggregates the sensor data into a internal obstacle map in body frame
 	 */
 	void _updateObstacleMap();
-
-	/**
-	 * Publishes vehicle command.
-	 */
-	void _publishVehicleCmdDoLoiter();
-
 };

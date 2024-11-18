@@ -44,7 +44,6 @@
 #include <px4_msgs/msg/vehicle_control_mode.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <stdint.h>
-#include <lib/collision_prevention/CollisionPrevention.hpp>
 
 #include <chrono>
 #include <iostream>
@@ -56,7 +55,7 @@ using namespace px4_msgs::msg;
 class OffboardControl : public rclcpp::Node
 {
 public:
-	OffboardControl() : Node("offboard_control"), time_step(milliseconds(100))
+	OffboardControl() : Node("offboard_control")
 	{
 
 		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
@@ -84,7 +83,7 @@ public:
 				offboard_setpoint_counter_++;
 			}
 		};
-		timer_ = this->create_wall_timer(time_step, timer_callback);
+		timer_ = this->create_wall_timer(100ms, timer_callback);
 	}
 
 	void arm();
@@ -92,14 +91,6 @@ public:
 
 private:
 	rclcpp::TimerBase::SharedPtr timer_;
-	milliseconds time_step;
-	float time_step_seconds = duration<float>(time_step).count();
-	float x_position = 0.0; // Track x-position dynamically
-	float y_position = 0.0; // Track y-position dynamically
-	float z_position = 0.0;
-
-	float yaw = -3.14;
-
 	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
 	rclcpp::Publisher<TrajectorySetpoint>::SharedPtr trajectory_setpoint_publisher_;
 	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
@@ -141,7 +132,7 @@ void OffboardControl::publish_offboard_control_mode()
 {
 	OffboardControlMode msg{};
 	msg.position = true;
-	msg.velocity = true;
+	msg.velocity = false;
 	msg.acceleration = false;
 	msg.attitude = false;
 	msg.body_rate = false;
@@ -155,17 +146,12 @@ void OffboardControl::publish_offboard_control_mode()
  *        vehicle hover at 5 meters with a yaw angle of 180 degrees.
  */
 void OffboardControl::publish_trajectory_setpoint()
-{	
-    // x_position += time_step_seconds * (-0.1); 
-	// y_position += time_step_seconds * (0.1);            // Increment by desired step each call (based on velocity)
-
-    TrajectorySetpoint msg{};
-    msg.position = {0.0, 0.0, -5.0}; // Update x-position, keep y and z constant
-	// msg.velocity = {0.1, 0.1, 0.0};
-    msg.yaw = 1.57;
-    // msg.yaw = -3.14;
-    msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    trajectory_setpoint_publisher_->publish(msg);
+{
+	TrajectorySetpoint msg{};
+	msg.position = {0.0, 0.0, -5.0};
+	msg.yaw = -3.14; // [-PI:PI]
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+	trajectory_setpoint_publisher_->publish(msg);
 }
 
 /**

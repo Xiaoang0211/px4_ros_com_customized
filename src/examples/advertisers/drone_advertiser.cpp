@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
     // Gazebo Sim Topics to be subscribed
     std::string cameraInfoTopic = "/camera_info";
     std::string imageTopic = "/camera";
-    std::string laserScanTopic = "/world/baylands/model/x500_cam_2dlidar_0/model/lidar/link/link/sensor/lidar_2d_v2/scan";
+    std::string laserScanTopic = "/world/walls/model/x500_cam_2dlidar_0/model/lidar/link/link/sensor/lidar_2d_v2/scan";
 
     // Instantiate GZROSCameraAdavertiser and start listening
     auto drone_advertiser = std::make_shared<DroneAdvertiser>(cameraInfoTopic, imageTopic, laserScanTopic);

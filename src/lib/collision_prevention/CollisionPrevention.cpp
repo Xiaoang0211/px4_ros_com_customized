@@ -32,9 +32,9 @@
  ****************************************************************************/
 
 /**
- * @file CollisionPrevention.cpp
+ * @file Exploration.cpp
  * CollisionPrevention controller.
- *
+ * ROS Node: random walk with collision prevention
  */
 
 #include <lib/collision_prevention/CollisionPrevention.hpp>
@@ -46,6 +46,8 @@ namespace
 {
 static constexpr int INTERNAL_MAP_INCREMENT_DEG = 10; //cannot be lower than 5 degrees, should divide 360 evenly
 static constexpr int INTERNAL_MAP_USED_BINS = 360 / INTERNAL_MAP_INCREMENT_DEG;
+static constexpr uint64_t RANGE_STREAM_TIMEOUT_US = std::chrono::duration_cast<std::chrono::nanoseconds>(500ms).count();
+static constexpr uint64_t TIMEOUT_HOLD_US = std::chrono::duration_cast<std::chrono::nanoseconds>(5s).count();
 
 static float wrap_360(float f)
 {
@@ -65,31 +67,13 @@ static int wrap_bin(int i)
 
 } // namespace
 
-CollisionPrevention::CollisionPrevention() :
-	rclcpp::Node("collision_prevention_node"),
+CollisionPrevention::CollisionPrevention(const CollisionPreventionParameters& params) :
+	_params(params),
 	_new_obstacle_distance_received(false),
 	_new_vehicle_attitude_received(false)
 {
 	static_assert(INTERNAL_MAP_INCREMENT_DEG >= 5, "INTERNAL_MAP_INCREMENT_DEG needs to be at least 5");
 	static_assert(360 % INTERNAL_MAP_INCREMENT_DEG == 0, "INTERNAL_MAP_INCREMENT_DEG should divide 360 evenly");
-
-	// Define parameters and initialize them
-	declare_parameter<float>("cp_dist", 1.0);
-    declare_parameter<float>("cp_delay", 0.1);
-    declare_parameter<float>("cp_guide_ang", 30.0); // degree
-    declare_parameter<bool>("cp_go_nodata", true);
-    declare_parameter<float>("mpc_xy_p", 1.0);
-    declare_parameter<float>("mpc_jerk_max", 10.0);
-    declare_parameter<float>("mpc_acc_hor", 5.0);
-
-	// Retrieve the declared parameters
-    get_parameter("cp_dist", _param_cp_dist);
-    get_parameter("cp_delay", _param_cp_delay);
-    get_parameter("cp_guide_ang", _param_cp_guide_ang);
-    get_parameter("cp_go_nodata", _param_cp_go_nodata);
-    get_parameter("mpc_xy_p", _param_mpc_xy_p);
-    get_parameter("mpc_jerk_max", _param_mpc_jerk_max);
-    get_parameter("mpc_acc_hor", _param_mpc_acc_hor);
 
 	// initialize internal obstacle map
 	_obstacle_map_body_frame.timestamp = getTime();
@@ -107,67 +91,70 @@ CollisionPrevention::CollisionPrevention() :
 		_data_fov[i] = 0;
 		_obstacle_map_body_frame.distances[i] = UINT16_MAX;
 	}
-
-	//initialize publishers of px4 topics
-	_collision_constraints_pub = this->create_publisher<CollisionConstraints>("collision_constraints", 10);
-	_obstacle_distance_pub = this->create_publisher<ObstacleDistance>("obstacle_distance_fused", 10);
-	_vehicle_command_pub = this->create_publisher<VehicleCommand>("vehicle_command", 10);
-
-	// initialize subscribers of px4 topics obstacle_distance and vehicle_attitude
-	_obstacle_distance_sub = this->create_subscription<ObstacleDistance>(
-		"obstacle_distance", 10,
-		[this](const ObstacleDistance::SharedPtr msg) {
-			this->_latest_obstacle_distance = *msg;
-			this->_new_obstacle_distance_received = true;
-		}
-	);
-
-	_vehicle_attitude_sub = this->create_subscription<VehicleAttitude>(
-		"obstacle_distance", 10,
-		[this](const VehicleAttitude::SharedPtr msg) {
-			this->_latest_vehicle_attitude = *msg;
-			this->_new_vehicle_attitude_received = true;
-		}
-	);
-
 }
 
 /**
- * @brief returing system-wide real time since unix epoch
+ * @brief set _latest_obstacle_distance obtained from the ros topic /fmu/in/obstacle_distance
  * 
- * @return hrt_abstime: uint64_t, in nanoseconds
+ * @param msg 
  */
-hrt_abstime CollisionPrevention::hrt_absolute_time()
-{	
-	return std::chrono::duration_cast<std::chrono::nanoseconds>(
-		std::chrono::system_clock::now().time_since_epoch()
-	).count();
+void CollisionPrevention::setObstacleDistance(const ObstacleDistance& msg)
+{
+	_latest_obstacle_distance = msg;
+	_new_obstacle_distance_received = true;
+}
+
+/**
+ * @brief set _lastest_vehicle_attitude obtained from ros topic /fmu/out/vehicle_attitude
+ * 
+ * @param msg 
+ */
+void CollisionPrevention::setVehicleAttitude(const VehicleAttitude& msg)
+{
+	_latest_vehicle_attitude = msg;
+	_new_vehicle_attitude_received = true;
+}
+
+void CollisionPrevention::getCollisionConstraints(CollisionConstraints& msg)
+{
+	msg = constraints;
+}
+
+/**
+ * @brief to let the offboard control node be able to get the current obstacle map
+ * 
+ * @param obstacle_distance_msg
+ */
+void CollisionPrevention::getObstacleDistanceFused(ObstacleDistance& msg)
+{
+	msg = _obstacle_map_body_frame;
 }
 
 /**
  * @brief getting system-wide real time since unix epoch
  * 
- * @return hrt_abstime: uint64_t, in nanoseconds
+ * @return hrt_abstime: uint64_t, nanoseconds
  */
 hrt_abstime CollisionPrevention::getTime()
-{
-	return hrt_absolute_time();
+{	
+	auto now = steady_clock::now();
+	return duration_cast<nanoseconds>(now.time_since_epoch()).count();
 }
 
 /**
  * @brief returning the time duration given time points (absolute system time)
  * 
- * @param ptr 
+ * @param start_time 
  * @return hrt_duration: uint64_t, nanoseconds
  */
 hrt_duration CollisionPrevention::getElapsedTime(const hrt_abstime& start_time)
 {
-	return hrt_absolute_time() - start_time;
+	return getTime() - start_time;
 }
 
 bool CollisionPrevention::is_active()
 {
-	bool activated = _param_cp_dist > 0;
+	bool activated = _param.cp_dist > 0;
 
 	if (activated && !_was_active) {
 		_time_activated = getTime();
@@ -176,6 +163,7 @@ bool CollisionPrevention::is_active()
 	_was_active = activated;
 	return activated;
 }
+
 
 void
 CollisionPrevention::_addObstacleSensorData(const ObstacleDistance &obstacle, const matrix::Quatf &vehicle_attitude)
@@ -217,14 +205,13 @@ CollisionPrevention::_addObstacleSensorData(const ObstacleDistance &obstacle, co
 					_obstacle_map_body_frame.distances[i] = obstacle.distances[msg_index];
 					_data_timestamps[i] = _obstacle_map_body_frame.timestamp;
 					_data_maxranges[i] = obstacle.max_distance;
-					_data_fov[i] = 1;
+				CollisionPrevention	_data_fov[i] = 1;
 				}
 			}
 		}
 
 	}else {
-		// Replace mavlink_log_critical and events::send with ROS 2 logging
-		RCLCPP_ERROR(this->get_logger(), "Obstacle message received in unsupported frame %i", obstacle.frame);
+		std::cerr << "Obstacle message received in unsupported frame " << obstacle.frame << std::endl;
 	}
 }
 
@@ -265,14 +252,15 @@ CollisionPrevention::_updateObstacleMap()
 {	
 	if (_new_vehicle_attitude_received && _new_obstacle_distance_received) {
 
-		// "snapshots" of the obstacle and vehicle attitude messages
+		// copies of the latest obstacle and vehicle attitude messages
 		obstacle_distance = _latest_obstacle_distance;
 		vehicle_attitude = _latest_vehicle_attitude;
 
 		// Update map with obstacle data if the data is not stale
+		uint64_t obs_elapse_time = getElapsedTime(obstacle_distance.timestamp);
 		if (getElapsedTime(obstacle_distance.timestamp) < RANGE_STREAM_TIMEOUT_US && obstacle_distance.increment > 0.f) {
-			//update message description
 			_obstacle_map_body_frame.timestamp = math::max(_obstacle_map_body_frame.timestamp, obstacle_distance.timestamp);
+
 			_obstacle_map_body_frame.max_distance = math::max(_obstacle_map_body_frame.max_distance,
 								obstacle_distance.max_distance);
 			_obstacle_map_body_frame.min_distance = math::min(_obstacle_map_body_frame.min_distance,
@@ -281,20 +269,16 @@ CollisionPrevention::_updateObstacleMap()
 			_addObstacleSensorData(obstacle_distance, quat);
 		}
 	}
-
 	_new_obstacle_distance_received = false;
     _new_vehicle_attitude_received = false;
-
-	// publish fused obtacle distance message with data from offboard obstacle_distance
-	_obstacle_distance_pub->publish(_obstacle_map_body_frame);
 }
 
 
 void
 CollisionPrevention::_adaptSetpointDirection(Vector2f &setpoint_dir, int &setpoint_index, float vehicle_yaw_angle_rad)
 {
-	const float col_prev_d = _param_cp_dist;
-	const int guidance_bins = floor(_param_cp_guide_ang / INTERNAL_MAP_INCREMENT_DEG);
+	const float col_prev_d = _param.cp_dist;
+	const int guidance_bins = floor(_param.cp_guide_ang / INTERNAL_MAP_INCREMENT_DEG);
 	const int sp_index_original = setpoint_index;
 	float best_cost = 9999.f;
 	int new_sp_index = setpoint_index;
@@ -343,12 +327,12 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 	_updateObstacleMap();
 
 	// read parameters
-	const float col_prev_d = _param_cp_dist;
-	const float col_prev_dly = _param_cp_delay;
-	const bool move_no_data = _param_cp_go_nodata;
-	const float xy_p = _param_mpc_xy_p;
-	const float max_jerk = _param_mpc_jerk_max;
-	const float max_accel = _param_mpc_acc_hor;
+	const float col_prev_d = _param.cp_dist;
+	const float col_prev_dly = _param.cp_delay;
+	const bool move_no_data = _param.cp_go_nodata;
+	const float xy_p = _param.mpc_xy_p;
+	const float max_jerk = _param.mpc_jerk_max;
+	const float max_accel = _param.mpc_acc_hor;
 	const matrix::Quatf attitude = Quatf(vehicle_attitude.q.data());
 	const float vehicle_yaw_angle_rad = Eulerf(attitude).psi();
 
@@ -358,6 +342,7 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 	int num_fov_bins = 0;
 
 	if ((constrain_time - _obstacle_map_body_frame.timestamp) < RANGE_STREAM_TIMEOUT_US) {
+
 		if (setpoint_length > 0.001f) {
 
 			Vector2f setpoint_dir = setpoint / setpoint_length;
@@ -440,30 +425,16 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 
 			setpoint = setpoint_dir * vel_max;
 		}
-
 	} else {
-		//allow no movement
+		//allow no movement if the distance data is stale
 		float vel_max = 0.f;
 		setpoint = setpoint * vel_max;
-
-		// if distance data is stale, switch to Loiter
-		if (getElapsedTime(_last_timeout_warning) > 1'000'000'000 && getElapsedTime(_time_activated) > 1'000'000'000) {
-
-			if ((constrain_time - _obstacle_map_body_frame.timestamp) > TIMEOUT_HOLD_US
-			    && getElapsedTime(_time_activated) > TIMEOUT_HOLD_US) {
-				_publishVehicleCmdDoLoiter();
-			}
-
-			_last_timeout_warning = getTime();
-		}
-
-
 	}
 }
 
 void
-CollisionPrevention::modifySetpoint(Vector2f &original_setpoint, const float max_speed, const Vector2f &curr_pos,
-				    const Vector2f &curr_vel)
+CollisionPrevention::modifySetpoint(Vector2f& original_setpoint, const float max_speed, const Vector2f& curr_pos,
+				    const Vector2f& curr_vel)
 {
 	//calculate movement constraints based on range data
 	Vector2f new_setpoint = original_setpoint;
@@ -477,32 +448,9 @@ CollisionPrevention::modifySetpoint(Vector2f &original_setpoint, const float max
 
 	_interfering = currently_interfering;
 
-	// publish constraints
-	CollisionConstraints	constraints{};
+	// set constraints
 	constraints.timestamp = getTime();
 	original_setpoint.copyTo(constraints.original_setpoint.data());
 	new_setpoint.copyTo(constraints.adapted_setpoint.data());
-	_collision_constraints_pub->publish(constraints);
-
 	original_setpoint = new_setpoint;
-}
-
-void CollisionPrevention::_publishVehicleCmdDoLoiter()
-{
-	VehicleCommand command{};
-	command.timestamp = getTime();
-	command.command = VehicleCommand::VEHICLE_CMD_DO_SET_MODE;
-	command.param1 = (float)1; // base mode
-	command.param3 = (float)0; // sub mode
-	command.target_system = 1;
-	command.target_component = 1;
-	command.source_system = 1;
-	command.source_component = 1;
-	command.confirmation = false;
-	command.from_external = false;
-	command.param2 = (float)PX4_CUSTOM_MAIN_MODE_AUTO;
-	command.param3 = (float)PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
-
-	// publish the vehicle command
-	_vehicle_command_pub->publish(command);
 }
