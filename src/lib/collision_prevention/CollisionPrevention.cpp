@@ -38,9 +38,13 @@
  */
 
 #include <lib/collision_prevention/CollisionPrevention.hpp>
+#include <iostream>
 
 using namespace matrix;
 using namespace px4_msgs::msg;
+using namespace std::chrono;
+using namespace std::chrono_literals;
+
 
 namespace
 {
@@ -154,7 +158,7 @@ hrt_duration CollisionPrevention::getElapsedTime(const hrt_abstime& start_time)
 
 bool CollisionPrevention::is_active()
 {
-	bool activated = _param.cp_dist > 0;
+	bool activated = _params.cp_dist > 0;
 
 	if (activated && !_was_active) {
 		_time_activated = getTime();
@@ -205,13 +209,13 @@ CollisionPrevention::_addObstacleSensorData(const ObstacleDistance &obstacle, co
 					_obstacle_map_body_frame.distances[i] = obstacle.distances[msg_index];
 					_data_timestamps[i] = _obstacle_map_body_frame.timestamp;
 					_data_maxranges[i] = obstacle.max_distance;
-				CollisionPrevention	_data_fov[i] = 1;
+					_data_fov[i] = 1;
 				}
 			}
 		}
 
 	}else {
-		std::cerr << "Obstacle message received in unsupported frame " << obstacle.frame << std::endl;
+		std::cerr << "Obstacle message received in unsupported frame: " << obstacle.frame << std::endl;
 	}
 }
 
@@ -277,8 +281,8 @@ CollisionPrevention::_updateObstacleMap()
 void
 CollisionPrevention::_adaptSetpointDirection(Vector2f &setpoint_dir, int &setpoint_index, float vehicle_yaw_angle_rad)
 {
-	const float col_prev_d = _param.cp_dist;
-	const int guidance_bins = floor(_param.cp_guide_ang / INTERNAL_MAP_INCREMENT_DEG);
+	const float col_prev_d = _params.cp_dist;
+	const int guidance_bins = floor(_params.cp_guide_ang / INTERNAL_MAP_INCREMENT_DEG);
 	const int sp_index_original = setpoint_index;
 	float best_cost = 9999.f;
 	int new_sp_index = setpoint_index;
@@ -327,12 +331,12 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 	_updateObstacleMap();
 
 	// read parameters
-	const float col_prev_d = _param.cp_dist;
-	const float col_prev_dly = _param.cp_delay;
-	const bool move_no_data = _param.cp_go_nodata;
-	const float xy_p = _param.mpc_xy_p;
-	const float max_jerk = _param.mpc_jerk_max;
-	const float max_accel = _param.mpc_acc_hor;
+	const float col_prev_d = _params.cp_dist;
+	const float col_prev_dly = _params.cp_delay;
+	const bool move_no_data = _params.cp_go_nodata;
+	const float xy_p = _params.mpc_xy_p;
+	const float max_jerk = _params.mpc_jerk_max;
+	const float max_accel = _params.mpc_acc_hor;
 	const matrix::Quatf attitude = Quatf(vehicle_attitude.q.data());
 	const float vehicle_yaw_angle_rad = Eulerf(attitude).psi();
 

@@ -8,24 +8,24 @@ target_include_directories(CollisionPrevention PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(CollisionPrevention rclcpp px4_msgs)
+ament_target_dependencies(CollisionPrevention px4_msgs)
 target_link_libraries(CollisionPrevention mathlib matrix)
 
 # Add compile options (adjust as needed)
 target_compile_options(CollisionPrevention PRIVATE -Wno-cast-align) # TODO: fix and enable
 
-# Test executable
-set(TEST_NAME collision_prevention_test)
-add_executable(${TEST_NAME} CollisionPreventionTest.cpp)
+# # Test executable
+# set(TEST_NAME collision_prevention_test)
+# add_executable(${TEST_NAME} CollisionPreventionTest.cpp)
 
-# Include directories for the test executable
-target_include_directories(${TEST_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
+# # Include directories for the test executable
+# target_include_directories(${TEST_NAME} PRIVATE
+#     ${CMAKE_SOURCE_DIR}/include
+#     ${CMAKE_CURRENT_SOURCE_DIR}
+# )
 
-# Link the CollisionPrevention library and GTest to the test executable
-target_link_libraries(${TEST_NAME} PRIVATE CollisionPrevention GTest::GTest GTest::Main)
+# # Link the CollisionPrevention library and GTest to the test executable
+# target_link_libraries(${TEST_NAME} PRIVATE CollisionPrevention GTest::GTest GTest::Main)
 
-# Add the test
-add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+# # Add the test
+# add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})

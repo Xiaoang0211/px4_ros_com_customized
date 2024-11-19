@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <chrono>
 #include <iostream>
-#include <lib/examples/offboard/offboard_ctrl.hpp>
+#include <lib/examples/offboard/OffboardControl.hpp>
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -67,11 +67,6 @@ void OffboardControl::timerCallback()
 
     publishCollisionConstraints();
     publishObstacleDistanceFused();
-
-    // get the desired setpoint and yaw angle from RandomExplore
-    random_explore_.getSetpoint(setpoint_vx, setpoint_vy, setpoint_vz); // set point of xyz direction velocities
-    random_explore_.getSetpointYaw(setpoint_yaw);
-    setpoint_yaw = setpoint_yaw * M_PI / 180.0; // Convert to radians
 
 	// offboard control mode needs to be paired with trajectory setpoint
     publishOffboardControlMode();

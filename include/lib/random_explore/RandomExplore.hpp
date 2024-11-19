@@ -21,9 +21,9 @@ class RandomExplore
 {
 public:
     RandomExplore();
-    virtual ~RandomExplore() = default;
+    ~RandomExplore() = default;
 
-    void performRandonAction();
+    void performRandomAction();
 
     // Setters for current state in NED frame from VehicleLocalPosition message
     void setCurrentPosition(float x, float y, float z);
@@ -35,7 +35,7 @@ public:
     void setVehicleAttitude(const VehicleAttitude &msg);
 
     // getters for setpoint and yaw
-    void getSetpointandAndYaw(float &x, float &y, float &z, float &yaw);
+    void getSetpoint(float &x, float &y, float &z, float &yaw);
     void getCollisionConstraints(CollisionConstraints& msg);
     void getObstacleDistanceFused(ObstacleDistance& msg);
 
@@ -52,7 +52,7 @@ protected:
     std::uniform_real_distribution<float> delta_yaw_;
     std::uniform_real_distribution<float> vel_altitude_;
 
-    enum class Action { MOVE_FORWARD = 0, ROTATE, ASCEND, DESCED }:
+    enum class Action { MOVE_HORIZONTAL = 0, ROTATE, ASCEND, DESCEND };
 
     Action getRandomAction();
 
@@ -70,8 +70,8 @@ protected:
         float vz;
     } current_velocity_, setpoint_vel_;
 
-    float current_yaw;
-    float setpoint_yaw;
+    float current_yaw_;
+    float setpoint_yaw_;
 
     // Subscribed obstacle and attitude messages
     ObstacleDistance::SharedPtr obstacle_distance_msg_;

@@ -67,13 +67,13 @@ struct CollisionPreventionParameters
 	float mpc_xy_p;
 	float mpc_jerk_max;
 	float mpc_acc_hor;
-}
+};
 
 class CollisionPrevention
 {
 public:
 	CollisionPrevention(const CollisionPreventionParameters& params);
-	~CollisionPrevention() override = default;
+	~CollisionPrevention() = default;
 
 	/**
 	 * Returns true if Collision Prevention is running

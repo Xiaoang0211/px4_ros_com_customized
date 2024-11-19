@@ -43,6 +43,8 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 add_subdirectory(src/lib/collision_prevention)
 add_subdirectory(src/lib/mathlib)
 add_subdirectory(src/lib/matrix)
+add_subdirectory(src/lib/random_explore)
+add_subdirectory(src/examples/offboard)
 
 #################
 # Setup targets #
@@ -58,8 +60,14 @@ install(TARGETS drone_advertiser DESTINATION lib/${PROJECT_NAME})
 # examples/offboard/offboard_control
 add_executable(offboard_control src/examples/offboard/offboard_control.cpp)
 ament_target_dependencies(offboard_control rclcpp px4_msgs)
-target_link_libraries(offboard_control CollisionPrevention mathlib matrix)
+target_link_libraries(offboard_control mathlib matrix)
 install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
+
+# examples/offboard/offboard_control
+add_executable(OffboardControl src/examples/offboard/OffboardControl.cpp)
+ament_target_dependencies(OffboardControl rclcpp px4_msgs)
+target_link_libraries(OffboardControl mathlib matrix CollisionPrevention RandomExplore)
+install(TARGETS OffboardControl DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##
@@ -73,6 +81,8 @@ ament_export_include_directories(include)
 ament_export_targets(export_CollisionPrevention HAS_LIBRARY_TARGET)
 ament_export_targets(export_mathlib HAS_LIBRARY_TARGET)
 ament_export_targets(export_matrix HAS_LIBRARY_TARGET)
+ament_export_targets(export_RandomExplore HAS_LIBRARY_TARGET)
+ament_export_targets(export_OffboardControl HAS_LIBRARY_TARGET)
 
 # Install header files
 install(DIRECTORY include/
@@ -87,9 +97,30 @@ install(TARGETS CollisionPrevention
 	INCLUDES DESTINATION include
 )
 
+# Install RandomExplore library
+install(TARGETS RandomExplore
+	EXPORT export_RandomExplore
+	ARCHIVE DESTINATION lib
+	LIBRARY DESTINATION lib
+	RUNTIME DESTINATION bin
+	INCLUDES DESTINATION include
+)
+
 # Install header files for CollisionPrevention
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/lib/collision_prevention/
     DESTINATION include/lib/collision_prevention
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+)
+
+# Install header files for RandomExplore
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/lib/random_explore/
+    DESTINATION include/lib/random_explore
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+)
+
+# Install header files for OffboardControl
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/examples/offboard/
+    DESTINATION include/examples/offboard
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
 )
 
@@ -104,30 +135,13 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/lib/matrix/
     DESTINATION include/lib/matrix
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
+
 install(TARGETS mathlib EXPORT export_mathlib)
 install(TARGETS matrix EXPORT export_matrix)
 
-# Install launch files.
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
-
-# Install tests
-install(DIRECTORY test DESTINATION share/${PROJECT_NAME}/)
-
-
-############
-# Testing ##
-############
-
-# if(BUILD_TESTING)
-# 	find_package(ament_lint_auto REQUIRED)
-# 	# the following line skips the linter which checks for copyrights
-# 	# uncomment the line when a copyright and license is not present in all source files
-# 	#set(ament_cmake_copyright_FOUND TRUE)
-# 	# the following line skips cpplint (only works in a git repo)
-# 	# uncomment the line when this package is not in a git repo
-# 	#set(ament_cmake_cpplint_FOUND TRUE)
-# 	ament_lint_auto_find_test_dependencies()
-# endif()
+# ############
+# # Testing ##
+# ############
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -140,18 +154,5 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-###########
-# Python ##
-###########
-
-# Install Python modules
-ament_python_install_package(${PROJECT_NAME})
-
-# Install Python executables
-install(PROGRAMS
-  src/examples/offboard_py/offboard_control.py
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 ament_package()

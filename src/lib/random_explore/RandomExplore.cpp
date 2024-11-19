@@ -8,7 +8,6 @@
  * The class RandomExplore is implemented as a ROS node to publish the following topics:
  * 1. obstacle_distance_fused, which is used for updating the obstacle map.
  * 2. collision_constraints
- * 3. vehicle_command, which is for publishing the new set point for the random walk.
  * 
  * To successfully publish these topics, RandomExplore requires the following subscriptions:
  * 1. obstacle_distance, which is the latest obstacle map captured by the 2D LiDAR
@@ -29,14 +28,14 @@ RandomExplore::RandomExplore() :
     action_type_(0, 3),
     vel_horizontal_(-0.5, 0.5), // horizontal velocity in ned frame
     delta_yaw_(-45.0, 45.0), // change of yaw angle in body frame
-    vel_altitude_(0.2, 0.5) // z direction velocity in ned frame
+    vel_altitude_(0.2, 0.5), // z direction velocity in ned frame
+    collision_prevention_({1.0f, 0.1f, 45.0f, true, 1.0f, 1.0f, 1.0f})
 {
     // initialize drone states 
     current_position_ = {0.0, 0.0, 0.0};
     setpoint_vel_ = {0.0, 0.0, 0.0};
     current_velocity_ = {0.0, 0.0, 0.0};
     current_yaw_ = 0.0;
-    collision_prevention_ = CollisionPrevention();
 }
 
 void RandomExplore::performRandomAction()
@@ -168,7 +167,7 @@ void RandomExplore::setVehicleAttitude(const VehicleAttitude &msg)
 }
 
 // Getters for setpoint in NED frame
-void RandomExplore::getSetpointAndYaw(float &vx, float &vy, float &vz, float &yaw)
+void RandomExplore::getSetpoint(float &vx, float &vy, float &vz, float &yaw)
 {
     vx = setpoint_vel_.vx;
     vy = setpoint_vel_.vy;
