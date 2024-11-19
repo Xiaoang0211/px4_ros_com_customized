@@ -43,8 +43,8 @@ private:
     void localPositionCallback(const VehicleLocalPosition::SharedPtr msg);
 
     // collision prevention publisher messages
-    CollisionConstraints::SharedPtr collision_constraints_msg_;
-    ObstacleDistance::SharedPtr obstacle_distance_fused_msg_;
+    CollisionConstraints collision_constraints_msg_;
+    ObstacleDistance obstacle_distance_fused_msg_;
 
     // setpoints obtained by RandomExplore with collision prevention
     float setpoint_vx, setpoint_vy, setpoint_vz;
@@ -63,6 +63,8 @@ private:
     void publishOffboardControlMode();
     void publishTrajectorySetpoint();
     void publishVehicleCommand(uint16_t command, float param1 = 0.0, float param2 = 0.0);
+    void publishCollisionConstraints();
+    void publishObstacleDistanceFused();
 
     // Arm/Disarm functions
     void arm();

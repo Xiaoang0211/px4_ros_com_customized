@@ -44,7 +44,6 @@ add_subdirectory(src/lib/collision_prevention)
 add_subdirectory(src/lib/mathlib)
 add_subdirectory(src/lib/matrix)
 add_subdirectory(src/lib/random_explore)
-add_subdirectory(src/examples/offboard)
 
 #################
 # Setup targets #
@@ -82,7 +81,6 @@ ament_export_targets(export_CollisionPrevention HAS_LIBRARY_TARGET)
 ament_export_targets(export_mathlib HAS_LIBRARY_TARGET)
 ament_export_targets(export_matrix HAS_LIBRARY_TARGET)
 ament_export_targets(export_RandomExplore HAS_LIBRARY_TARGET)
-ament_export_targets(export_OffboardControl HAS_LIBRARY_TARGET)
 
 # Install header files
 install(DIRECTORY include/

@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <chrono>
 #include <iostream>
-#include <lib/examples/offboard/OffboardControl.hpp>
+#include <examples/offboard/OffboardControl.hpp>
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -25,9 +25,9 @@ OffboardControl::OffboardControl()
         "/fmu/in/trajectory_setpoint", 10);
     vehicle_command_publisher_ = this->create_publisher<VehicleCommand>(
         "/fmu/in/vehicle_command", 10);
-    collision_constraints_publisher = this->create_publisher<CollisionConstraints>(
+    collision_constraints_publisher_ = this->create_publisher<CollisionConstraints>(
         "collision_constraints", 10);
-    obstacle_distance_fused_publisher = this->create_publisher<ObstacleDistance>(
+    obstacle_distance_fused_publisher_ = this->create_publisher<ObstacleDistance>(
         "obstacle_distance_fused", 10);
     
     
@@ -36,7 +36,7 @@ OffboardControl::OffboardControl()
         "/fmu/in/obstacle_distance", 10,
         std::bind(&OffboardControl::obstacleDistanceCallback, this, std::placeholders::_1));
 
-    vehicle_attitude_subscriber_ = this->create_subscription<ObstacleDistance>(
+    vehicle_attitude_subscriber_ = this->create_subscription<VehicleAttitude>(
         "/fmu/out/vehicle_attitude", 10,
         std::bind(&OffboardControl::vehicleAttitudeCallback, this, std::placeholders::_1));
 
@@ -57,10 +57,6 @@ void OffboardControl::timerCallback()
         publishVehicleCommand(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
         RCLCPP_INFO(this->get_logger(), "Sent Offboard mode command");
     }
-
-    // pass the subscribed messages to RandomExplore for collision prevention
-    random_explore_.setObstacleDistanceMsg(obstacle_distance_msg_);
-    random_explore_.setVehicleAttitudeMsg(vehicle_attitude_msg_);
 
     // perform a random action with collision prevention
     random_explore_.performRandomAction();
@@ -153,13 +149,12 @@ void OffboardControl::localPositionCallback(const VehicleLocalPosition::SharedPt
 void OffboardControl::publishTrajectorySetpoint()
 {	
     // get the desired setpoint and yaw angle from RandomExplore
-    random_explore_.getSetpoint(setpoint_vx, setpoint_vy, setpoint_vz); // set point of xyz direction velocities
-    random_explore_.getSetpointYaw(setpoint_yaw);
+    random_explore_.getSetpoint(setpoint_vx, setpoint_vy, setpoint_vz, setpoint_yaw); // set point of xyz direction velocities
     setpoint_yaw = setpoint_yaw * M_PI / 180.0; // Convert to radians
 
     TrajectorySetpoint msg{};
-    msg.velocity = {vx_setpoint, vy_setpoint, altitude_vel}
-    msg.yaw = yaw_setpoint;
+    msg.velocity = {setpoint_vx, setpoint_vy, setpoint_vz};
+    msg.yaw = setpoint_yaw;
     msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     trajectory_setpoint_publisher_->publish(msg);
 }
@@ -169,7 +164,7 @@ void OffboardControl::publishCollisionConstraints()
     // get the message from random exploration
     random_explore_.getCollisionConstraints(collision_constraints_msg_);
     // publish
-    collision_constraints_publisher->publish(collision_constraints_msg_);
+    collision_constraints_publisher_->publish(collision_constraints_msg_);
 }
 
 void OffboardControl::publishObstacleDistanceFused()
@@ -177,7 +172,7 @@ void OffboardControl::publishObstacleDistanceFused()
     // get the message from random exploration
     random_explore_.getObstacleDistanceFused(obstacle_distance_fused_msg_);
     // publish
-    obstacle_distance_fused_publisher->publish(obstacle_distance_fused_msg_);
+    obstacle_distance_fused_publisher_->publish(obstacle_distance_fused_msg_);
 }
 
 int main(int argc, char *argv[])

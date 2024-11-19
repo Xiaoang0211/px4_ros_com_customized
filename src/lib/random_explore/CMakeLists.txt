@@ -9,7 +9,7 @@ target_include_directories(RandomExplore PUBLIC
 )
 
 ament_target_dependencies(RandomExplore px4_msgs)
-target_link_libraries(RandomExplore mathlib matrix)
+target_link_libraries(RandomExplore mathlib matrix CollisionPrevention)
 
 # Add compile options (adjust as needed)
 target_compile_options(RandomExplore PRIVATE -Wno-cast-align) # TODO: fix and enable
