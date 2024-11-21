@@ -8,7 +8,7 @@ target_include_directories(RandomExplore PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(RandomExplore px4_msgs)
+ament_target_dependencies(RandomExplore px4_msgs rclcpp)
 target_link_libraries(RandomExplore mathlib matrix CollisionPrevention)
 
 # Add compile options (adjust as needed)

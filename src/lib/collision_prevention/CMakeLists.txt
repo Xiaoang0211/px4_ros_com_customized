@@ -8,7 +8,7 @@ target_include_directories(CollisionPrevention PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(CollisionPrevention px4_msgs)
+ament_target_dependencies(CollisionPrevention px4_msgs rclcpp)
 target_link_libraries(CollisionPrevention mathlib matrix)
 
 # Add compile options (adjust as needed)

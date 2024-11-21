@@ -22,6 +22,7 @@
 
 using namespace px4_msgs::msg;
 using namespace std::chrono_literals;
+using namespace matrix;
 
 RandomExplore::RandomExplore() :
     rand_engine_(std::random_device{}()),
@@ -128,7 +129,7 @@ RandomExplore::Action RandomExplore::getRandomAction()
  * 
  * @param x, y, z message obtained from the ros topic VehicleLocalPosition
  */
-void RandomExplore::setCurrentPosition(float x, float y, float z)
+void RandomExplore::setCurrentPosition(const float x, const float y, const float z)
 {   
     // NED earth fixed frame
     current_position_.x = x;
@@ -136,7 +137,7 @@ void RandomExplore::setCurrentPosition(float x, float y, float z)
     current_position_.z = z;
 }
 
-void RandomExplore::setCurrentVelocity(float vx, float vy, float vz)
+void RandomExplore::setCurrentVelocity(const float vx, const float vy, const float vz)
 {   
     // NED eath fixed frame
     current_velocity_.vx = vx;
@@ -155,15 +156,17 @@ void RandomExplore::setCurrentYaw(const float yaw)
         current_yaw_ += 360.0;
 }
 
+void RandomExplore::setCurrentQuat(const std::array<float, 4> q)
+{   
+    matrix::Quatf quat = Quatf(q.data());
+    // pass the current attitude in earth-fixed NED frame to collision prevention module
+    collision_prevention_.setCurrentAttitude(quat);
+}
+
 // Setters for subscribed messages, which should used by Offboard Control node
 void RandomExplore::setObstacleDistance(const ObstacleDistance &msg)
 {
     collision_prevention_.setObstacleDistance(msg);
-}
-
-void RandomExplore::setVehicleAttitude(const VehicleAttitude &msg)
-{
-    collision_prevention_.setVehicleAttitude(msg);
 }
 
 // Getters for setpoint in NED frame

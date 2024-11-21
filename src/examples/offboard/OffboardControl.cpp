@@ -13,6 +13,7 @@
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
+using std::placeholders::_1;
 
 OffboardControl::OffboardControl() 
     : Node("offboard_control"), 
@@ -34,44 +35,38 @@ OffboardControl::OffboardControl()
     // initialize subscribers
     obstacle_distance_subscriber_ = this->create_subscription<ObstacleDistance>(
         "/fmu/in/obstacle_distance", 10,
-        std::bind(&OffboardControl::obstacleDistanceCallback, this, std::placeholders::_1));
+        std::bind(&OffboardControl::obstacleDistanceCallback, this, _1));
 
-    vehicle_attitude_subscriber_ = this->create_subscription<VehicleAttitude>(
-        "/fmu/out/vehicle_attitude", 10,
-        std::bind(&OffboardControl::vehicleAttitudeCallback, this, std::placeholders::_1));
+    vehicle_odometry_subscriber_ = this->create_subscription<VehicleOdometry>(
+        "/fmu/out/vehicle_odometry", 10,
+        std::bind(&OffboardControl::vehicleOdometryCallback, this, _1));
 
-    local_position_subscriber_ = this->create_subscription<VehicleLocalPosition>(
-        "/fmu/out/vehicle_local_position", 10,
-        std::bind(&OffboardControl::localPositionCallback, this, std::placeholders::_1));
+    auto timerCallback = [this]() -> void {
+        if (offboard_setpoint_counter_ == 10) {
+				// Change to Offboard mode after 10 setpoints
+				this->publishVehicleCommand(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
 
-    arm();
+				// Arm the vehicle
+				this->arm();
+		}
 
-    timer_ = this->create_wall_timer(100ms, std::bind(&OffboardControl::timerCallback, this));
-}
+        // perform a random action with collision prevention
+        random_explore_.performRandomAction();
 
-void OffboardControl::timerCallback()
-{   
-    // 1 second of warm-up
-    if (offboard_setpoint_counter_ == 10) {
-        // Change to Offboard mode after 10 setpoints
-        publishVehicleCommand(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
-        RCLCPP_INFO(this->get_logger(), "Sent Offboard mode command");
-    }
+        publishCollisionConstraints();
+        publishObstacleDistanceFused();
 
-    // perform a random action with collision prevention
-    random_explore_.performRandomAction();
+        // offboard control mode needs to be paired with trajectory setpoint
+        publishOffboardControlMode();
+        publishTrajectorySetpoint();
 
-    publishCollisionConstraints();
-    publishObstacleDistanceFused();
+        // Increase the setpoint counter
+        if (offboard_setpoint_counter_ < 11) {
+            offboard_setpoint_counter_++;
+        }
+    };
 
-	// offboard control mode needs to be paired with trajectory setpoint
-    publishOffboardControlMode();
-    publishTrajectorySetpoint();
-
-    // Increase the setpoint counter
-    if (offboard_setpoint_counter_ < 11) {
-        offboard_setpoint_counter_++;
-    }
+    timer_ = this->create_wall_timer(100ms, timerCallback);
 }
 
 void OffboardControl::arm()
@@ -84,19 +79,6 @@ void OffboardControl::disarm()
 {
     publishVehicleCommand(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
     RCLCPP_INFO(this->get_logger(), "Sent disarming command");
-}
-
-void OffboardControl::publishOffboardControlMode()
-{
-    OffboardControlMode msg{};
-    msg.position = false;
-    msg.velocity = true;
-    msg.acceleration = false;
-    msg.attitude = false;
-    msg.body_rate = false;
-    msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-
-    offboard_control_mode_publisher_->publish(msg);
 }
 
 void OffboardControl::publishVehicleCommand(uint16_t command, float param1, float param2)
@@ -120,32 +102,35 @@ void OffboardControl::obstacleDistanceCallback(const ObstacleDistance::SharedPtr
     random_explore_.setObstacleDistance(*msg);
 }
 
-void OffboardControl::vehicleAttitudeCallback(const VehicleAttitude::SharedPtr msg)
-{
-    // Extract yaw from the attitude quaternion
-    const auto &q = msg->q; // Assuming q is [w, x, y, z]
+void OffboardControl::vehicleOdometryCallback(const VehicleOdometry::SharedPtr msg)
+{   // Getting the current vehicle position and velocity through uorb topic VehicleOdometry
+    // Update current position and velocity in RandomExplore
+    random_explore_.setCurrentPosition(msg->position[0], msg->position[1], msg->position[2]);
+    random_explore_.setCurrentVelocity(msg->velocity[0], msg->velocity[1], msg->velocity[2]);
+
+    // const auto &q = msg->q;
+    const std::array<float, 4> &q = msg->q;
     float siny_cosp = 2.0 * (q[0] * q[3] + q[1] * q[2]);
     float cosy_cosp = 1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3]);
     float current_yaw = std::atan2(siny_cosp, cosy_cosp) * 180.0 / M_PI; // Convert to degrees
-
     // Update current yaw in RandomExplore
     random_explore_.setCurrentYaw(current_yaw);
-    random_explore_.setVehicleAttitude(*msg);
+    random_explore_.setCurrentQuat(q);
 }
 
-void OffboardControl::localPositionCallback(const VehicleLocalPosition::SharedPtr msg)
+void OffboardControl::publishOffboardControlMode()
 {
-    // Update current position and velocity in RandomExplore
-    random_explore_.setCurrentPosition(msg->x, msg->y, msg->z);
-    random_explore_.setCurrentVelocity(msg->vx, msg->vy, msg->vz);
+    OffboardControlMode msg{};
+    msg.position = true;
+    msg.velocity = true;
+    msg.acceleration = false;
+    msg.attitude = true;
+    msg.body_rate = false;
+    msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+
+    offboard_control_mode_publisher_->publish(msg);
 }
 
-/**
- * @brief 
- * 
- * @param xy_vel_setpoint set velocities in xy horizontal plain
- * @param altitude_vel set velocity in z direction
- */
 void OffboardControl::publishTrajectorySetpoint()
 {	
     // get the desired setpoint and yaw angle from RandomExplore
@@ -153,8 +138,10 @@ void OffboardControl::publishTrajectorySetpoint()
     setpoint_yaw = setpoint_yaw * M_PI / 180.0; // Convert to radians
 
     TrajectorySetpoint msg{};
-    msg.velocity = {setpoint_vx, setpoint_vy, setpoint_vz};
-    msg.yaw = setpoint_yaw;
+    msg.position = {0.0, 0.0, -5.0};
+    // msg.velocity = {setpoint_vx, setpoint_vy, setpoint_vz};
+    // msg.yaw = setpoint_yaw;
+    msg.yaw = 0.0;
     msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     trajectory_setpoint_publisher_->publish(msg);
 }

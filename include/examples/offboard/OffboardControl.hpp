@@ -8,8 +8,7 @@
 #include <px4_msgs/msg/vehicle_command.hpp>
 #include <px4_msgs/msg/collision_constraints.hpp>
 #include <px4_msgs/msg/obstacle_distance.hpp>
-#include <px4_msgs/msg/vehicle_attitude.hpp>
-#include <px4_msgs/msg/vehicle_local_position.hpp>
+#include <px4_msgs/msg/vehicle_odometry.hpp>
 #include <lib/random_explore/RandomExplore.hpp>
 
 using namespace px4_msgs::msg;
@@ -34,13 +33,7 @@ private:
 
     // Subscribers
     rclcpp::Subscription<ObstacleDistance>::SharedPtr obstacle_distance_subscriber_;
-    rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscriber_;
-    rclcpp::Subscription<VehicleLocalPosition>::SharedPtr local_position_subscriber_;
-
-    // Callback functions
-    void obstacleDistanceCallback(const ObstacleDistance::SharedPtr msg);
-    void vehicleAttitudeCallback(const VehicleAttitude::SharedPtr msg);
-    void localPositionCallback(const VehicleLocalPosition::SharedPtr msg);
+    rclcpp::Subscription<VehicleOdometry>::SharedPtr vehicle_odometry_subscriber_;
 
     // collision prevention publisher messages
     CollisionConstraints collision_constraints_msg_;
@@ -56,6 +49,9 @@ private:
     // Offboard control state
     uint64_t offboard_setpoint_counter_;
 
+    // Callback functions
+    void obstacleDistanceCallback(const ObstacleDistance::SharedPtr msg);
+    void vehicleOdometryCallback(const VehicleOdometry::SharedPtr msg);
     // Timer callback
     void timerCallback();
 

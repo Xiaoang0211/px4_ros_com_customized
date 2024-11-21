@@ -73,8 +73,9 @@ static int wrap_bin(int i)
 
 CollisionPrevention::CollisionPrevention(const CollisionPreventionParameters& params) :
 	_params(params),
-	_new_obstacle_distance_received(false),
-	_new_vehicle_attitude_received(false)
+	_obstacle_distance_received(false),
+	_vehicle_attitude_received(false),
+	logger_(rclcpp::get_logger("CollisionPrevention"))
 {
 	static_assert(INTERNAL_MAP_INCREMENT_DEG >= 5, "INTERNAL_MAP_INCREMENT_DEG needs to be at least 5");
 	static_assert(360 % INTERNAL_MAP_INCREMENT_DEG == 0, "INTERNAL_MAP_INCREMENT_DEG should divide 360 evenly");
@@ -98,14 +99,14 @@ CollisionPrevention::CollisionPrevention(const CollisionPreventionParameters& pa
 }
 
 /**
- * @brief set _latest_obstacle_distance obtained from the ros topic /fmu/in/obstacle_distance
+ * @brief set current_obstacle_distance obtained from the ros topic /fmu/in/obstacle_distance
  * 
  * @param msg 
  */
 void CollisionPrevention::setObstacleDistance(const ObstacleDistance& msg)
 {
-	_latest_obstacle_distance = msg;
-	_new_obstacle_distance_received = true;
+	current_obstacle_distance = msg;
+	_obstacle_distance_received = true;
 }
 
 /**
@@ -113,10 +114,10 @@ void CollisionPrevention::setObstacleDistance(const ObstacleDistance& msg)
  * 
  * @param msg 
  */
-void CollisionPrevention::setVehicleAttitude(const VehicleAttitude& msg)
+void CollisionPrevention::setCurrentAttitude(const Quatf quat)
 {
-	_latest_vehicle_attitude = msg;
-	_new_vehicle_attitude_received = true;
+	current_quat = quat;
+	_vehicle_attitude_received = true;
 }
 
 void CollisionPrevention::getCollisionConstraints(CollisionConstraints& msg)
@@ -215,8 +216,7 @@ CollisionPrevention::_addObstacleSensorData(const ObstacleDistance &obstacle, co
 		}
 
 	}else {
-		std::cerr << "Obstacle message received in unsupported frame: " << obstacle.frame << std::endl;
-	}
+    	RCLCPP_WARN(logger_, "Obstacle message received in unsupported frame: %d", obstacle.frame);	}
 }
 
 bool
@@ -254,11 +254,11 @@ CollisionPrevention::_enterData(int map_index, float sensor_range, float sensor_
 void
 CollisionPrevention::_updateObstacleMap()
 {	
-	if (_new_vehicle_attitude_received && _new_obstacle_distance_received) {
+	if (_vehicle_attitude_received && _obstacle_distance_received) {
 
 		// copies of the latest obstacle and vehicle attitude messages
-		obstacle_distance = _latest_obstacle_distance;
-		vehicle_attitude = _latest_vehicle_attitude;
+		obstacle_distance = current_obstacle_distance;
+		quat = current_quat;
 
 		// Update map with obstacle data if the data is not stale
 		uint64_t obs_elapse_time = getElapsedTime(obstacle_distance.timestamp);
@@ -269,12 +269,11 @@ CollisionPrevention::_updateObstacleMap()
 								obstacle_distance.max_distance);
 			_obstacle_map_body_frame.min_distance = math::min(_obstacle_map_body_frame.min_distance,
 								obstacle_distance.min_distance);
-			matrix::Quatf quat = Quatf(vehicle_attitude.q.data());
 			_addObstacleSensorData(obstacle_distance, quat);
 		}
 	}
-	_new_obstacle_distance_received = false;
-    _new_vehicle_attitude_received = false;
+	_obstacle_distance_received = false;
+    _vehicle_attitude_received = false;
 }
 
 
@@ -337,7 +336,7 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 	const float xy_p = _params.mpc_xy_p;
 	const float max_jerk = _params.mpc_jerk_max;
 	const float max_accel = _params.mpc_acc_hor;
-	const matrix::Quatf attitude = Quatf(vehicle_attitude.q.data());
+	const matrix::Quatf attitude = current_quat; 
 	const float vehicle_yaw_angle_rad = Eulerf(attitude).psi();
 
 	const float setpoint_length = setpoint.norm();

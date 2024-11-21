@@ -50,8 +50,8 @@
 #include <limits>
 #include <px4_msgs/msg/collision_constraints.hpp>
 #include <px4_msgs/msg/obstacle_distance.hpp>
-#include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 using hrt_abstime = uint64_t; // in nano seconds
 using hrt_duration = uint64_t;
@@ -85,7 +85,7 @@ public:
 	 * 
 	 */
 	void setObstacleDistance(const ObstacleDistance& msg);
-	void setVehicleAttitude(const VehicleAttitude& msg);
+	void setCurrentAttitude(const matrix::Quatf quat);
 
 	/**
 	 * @brief Getters for output data
@@ -113,12 +113,12 @@ protected:
 										    _obstacle_map_body_frame.distances[0])]; /**< in cm */
 
 	// the messages streamed through subscription
-    ObstacleDistance _latest_obstacle_distance;
-    VehicleAttitude _latest_vehicle_attitude;
+    ObstacleDistance current_obstacle_distance;
+    matrix::Quatf current_quat;
 
 	// flags for checking if new message is received
-    bool _new_obstacle_distance_received;
-    bool _new_vehicle_attitude_received;
+    bool _obstacle_distance_received;
+    bool _vehicle_attitude_received;
 
 	/**
 	 * Updates obstacle distance message with measurement from offboard
@@ -158,13 +158,15 @@ protected:
 private:
 	// Parameters
 	CollisionPreventionParameters _params;
+	// ros logger
+	rclcpp::Logger logger_;
 
 	bool _interfering{false};		/**< states if the collision prevention interferes with the user input */
 	bool _was_active{false};		/**< states if the collision prevention interferes with the user input */
 
 	// the snapshots of the streamed input messages that we use in the calculation 
 	ObstacleDistance obstacle_distance;
-    VehicleAttitude vehicle_attitude;
+    matrix::Quatf quat;
 
 	// constraints should be published by the ros node OffboardControl
 	CollisionConstraints constraints;

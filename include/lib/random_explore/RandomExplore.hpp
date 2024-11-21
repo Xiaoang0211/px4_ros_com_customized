@@ -26,21 +26,23 @@ public:
     void performRandomAction();
 
     // Setters for current state in NED frame from VehicleLocalPosition message
-    void setCurrentPosition(float x, float y, float z);
-    void setCurrentVelocity(float vx, float vy, float vz);
-    void setCurrentYaw(float yaw);
+    void setCurrentPosition(const float x, const float y, const float z);
+    void setCurrentVelocity(const float vx, const float vy, const float vz);
+    void setCurrentYaw(const float yaw);
+    void setCurrentQuat(const std::array<float, 4> q);
 
-    // Setters for obstacle and attitude messages
+    // Setter for obstacle message
     void setObstacleDistance(const ObstacleDistance &msg);
-    void setVehicleAttitude(const VehicleAttitude &msg);
 
     // getters for setpoint and yaw
     void getSetpoint(float &x, float &y, float &z, float &yaw);
+    // getters for collision prevention message, which are for publishing
     void getCollisionConstraints(CollisionConstraints& msg);
     void getObstacleDistanceFused(ObstacleDistance& msg);
 
 protected:
 
+    // action functions
     void moveHorizontal(float velocity);
     void rotateYaw(float angle);
     void changeAltitude(float delta_z);
@@ -73,9 +75,8 @@ protected:
     float current_yaw_;
     float setpoint_yaw_;
 
-    // Subscribed obstacle and attitude messages
+    // Subscribed obstacle messages
     ObstacleDistance::SharedPtr obstacle_distance_msg_;
-    VehicleAttitude::SharedPtr vehicle_attitude_msg_;
 
     // Collision Prevention module
     CollisionPrevention collision_prevention_;
