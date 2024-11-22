@@ -85,6 +85,6 @@ This project demonstrates random exploration of a drone using ROS2 Humble, Gazeb
 
 ### TODOs
 
-1. Testing the collision prevention module.
+1. Testing the [collision prevention](https://github.com/Xiaoang0211/px4_ros_com_customized/tree/main/src/lib/collision_prevention) module.
 2. Using RViz to visualize trajectory.
-3. Testing [okvis2](https://github.com/smartroboticslab/okvis2) and visualize point set in RViz
+3. Testing [okvis2](https://github.com/smartroboticslab/okvis2) and visualize point set in RViz.
