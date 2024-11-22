@@ -10,6 +10,7 @@
 #include <px4_msgs/msg/obstacle_distance.hpp>
 #include <px4_msgs/msg/vehicle_odometry.hpp>
 #include <lib/random_explore/RandomExplore.hpp>
+#include <lib/collision_prevention/CollisionPrevention.hpp>
 
 using namespace px4_msgs::msg;
 using namespace std::chrono_literals;
@@ -19,6 +20,12 @@ class OffboardControl : public rclcpp::Node
 public:
     OffboardControl();
     ~OffboardControl() override = default;
+
+    void setCurrentXYPosition(const float x, const float y);
+    void setCurrentXYVelocity(const float vx, const float vy);
+    
+    rmw_qos_profile_t qos_profile;
+
 
 private:
     // Timer to periodically execute random movements
@@ -40,18 +47,23 @@ private:
     ObstacleDistance obstacle_distance_fused_msg_;
 
     // setpoints obtained by RandomExplore with collision prevention
+    float setpoint_x, setpoint_y, setpoint_z;
     float setpoint_vx, setpoint_vy, setpoint_vz;
     float setpoint_yaw;
+    bool start_exploring_;
+    rclcpp::Time last_time_;                 // Track time for integration
+    int counter;
 
     // Random exploration
     RandomExplore random_explore_;
 
+    // Collision Prevention
+    CollisionPrevention collision_prevention_;
+	matrix::Vector2f current_xy_position, current_xy_velocity;
+
     // Offboard control state
     uint64_t offboard_setpoint_counter_;
 
-    // Callback functions
-    void obstacleDistanceCallback(const ObstacleDistance::SharedPtr msg);
-    void vehicleOdometryCallback(const VehicleOdometry::SharedPtr msg);
     // Timer callback
     void timerCallback();
 

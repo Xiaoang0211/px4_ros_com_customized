@@ -11,7 +11,15 @@
 
 #pragma once
 
-#include <lib/collision_prevention/CollisionPrevention.hpp>
+#pragma once
+
+#include <float.h>
+#include <chrono>
+#include <lib/mathlib/mathlib.h>
+#include <lib/matrix/math.hpp>
+#include <limits>
+#include <px4_msgs/msg/obstacle_distance.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <random>
 
 using namespace px4_msgs::msg;
@@ -29,21 +37,18 @@ public:
     void setCurrentPosition(const float x, const float y, const float z);
     void setCurrentVelocity(const float vx, const float vy, const float vz);
     void setCurrentYaw(const float yaw);
-    void setCurrentQuat(const std::array<float, 4> q);
 
     // Setter for obstacle message
     void setObstacleDistance(const ObstacleDistance &msg);
 
     // getters for setpoint and yaw
     void getSetpoint(float &x, float &y, float &z, float &yaw);
-    // getters for collision prevention message, which are for publishing
-    void getCollisionConstraints(CollisionConstraints& msg);
-    void getObstacleDistanceFused(ObstacleDistance& msg);
-
+    
 protected:
 
     // action functions
-    void moveHorizontal(float velocity);
+    void moveHorizontal(float velocity, float direction);
+    void moveForward(float velocity);
     void rotateYaw(float angle);
     void changeAltitude(float delta_z);
 
@@ -51,19 +56,14 @@ protected:
     std::default_random_engine rand_engine_;
     std::uniform_int_distribution<int> action_type_;
     std::uniform_real_distribution<float> vel_horizontal_;
+    std::uniform_real_distribution<float> vel_direction_;
     std::uniform_real_distribution<float> delta_yaw_;
-    std::uniform_real_distribution<float> vel_altitude_;
+    // std::uniform_real_distribution<float> vel_altitude_;
 
-    enum class Action { MOVE_HORIZONTAL = 0, ROTATE, ASCEND, DESCEND };
+    // enum class Action { MOVE_HORIZONTAL = 0, ROTATE, ASCEND, DESCEND };
+    enum class Action { MOVE_HORIZONTAL = 0, ROTATE, MOVE_FORWARD };
 
     Action getRandomAction();
-
-    struct Position
-    {
-        float x;
-        float y;
-        float z;
-    } current_position_;
 
     struct Velocity
     {
@@ -78,7 +78,8 @@ protected:
     // Subscribed obstacle messages
     ObstacleDistance::SharedPtr obstacle_distance_msg_;
 
-    // Collision Prevention module
-    CollisionPrevention collision_prevention_;
+private:
+    // ros logger
+	rclcpp::Logger logger_;
 };
 

@@ -104,7 +104,8 @@ CollisionPrevention::CollisionPrevention(const CollisionPreventionParameters& pa
  * @param msg 
  */
 void CollisionPrevention::setObstacleDistance(const ObstacleDistance& msg)
-{
+{	
+	std::unique_lock<std::shared_mutex> lock(data_mutex);
 	current_obstacle_distance = msg;
 	_obstacle_distance_received = true;
 }
@@ -114,14 +115,17 @@ void CollisionPrevention::setObstacleDistance(const ObstacleDistance& msg)
  * 
  * @param msg 
  */
-void CollisionPrevention::setCurrentAttitude(const Quatf quat)
-{
-	current_quat = quat;
+void CollisionPrevention::setCurrentAttitude(const std::array<float, 4> quat)
+{	
+	std::unique_lock<std::shared_mutex> lock(data_mutex);
+    current_quat = Quatf(quat.data());
 	_vehicle_attitude_received = true;
 }
 
+
 void CollisionPrevention::getCollisionConstraints(CollisionConstraints& msg)
 {
+	std::shared_lock<std::shared_mutex> lock(data_mutex);
 	msg = constraints;
 }
 
@@ -131,7 +135,8 @@ void CollisionPrevention::getCollisionConstraints(CollisionConstraints& msg)
  * @param obstacle_distance_msg
  */
 void CollisionPrevention::getObstacleDistanceFused(ObstacleDistance& msg)
-{
+{	
+	std::shared_lock<std::shared_mutex> lock(data_mutex);
 	msg = _obstacle_map_body_frame;
 }
 
@@ -158,7 +163,8 @@ hrt_duration CollisionPrevention::getElapsedTime(const hrt_abstime& start_time)
 }
 
 bool CollisionPrevention::is_active()
-{
+{	
+	std::unique_lock<std::shared_mutex> lock(data_mutex);
 	bool activated = _params.cp_dist > 0;
 
 	if (activated && !_was_active) {
@@ -254,9 +260,10 @@ CollisionPrevention::_enterData(int map_index, float sensor_range, float sensor_
 void
 CollisionPrevention::_updateObstacleMap()
 {	
+	std::unique_lock<std::shared_mutex> lock(data_mutex);
 	if (_vehicle_attitude_received && _obstacle_distance_received) {
 
-		// copies of the latest obstacle and vehicle attitude messages
+		// safe copies of the latest obstacle and vehicle attitude messages
 		obstacle_distance = current_obstacle_distance;
 		quat = current_quat;
 
@@ -326,7 +333,10 @@ CollisionPrevention::_adaptSetpointDirection(Vector2f &setpoint_dir, int &setpoi
 void
 CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vector2f &curr_pos,
 		const Vector2f &curr_vel)
-{
+{	
+	// Acquire an exclusive lock for shared resources
+    std::shared_lock<std::shared_mutex> lock(data_mutex);
+
 	_updateObstacleMap();
 
 	// read parameters
@@ -438,7 +448,8 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 void
 CollisionPrevention::modifySetpoint(Vector2f& original_setpoint, const float max_speed, const Vector2f& curr_pos,
 				    const Vector2f& curr_vel)
-{
+{	
+	std::unique_lock<std::shared_mutex> lock(data_mutex);
 	//calculate movement constraints based on range data
 	Vector2f new_setpoint = original_setpoint;
 	_calculateConstrainedSetpoint(new_setpoint, curr_pos, curr_vel);

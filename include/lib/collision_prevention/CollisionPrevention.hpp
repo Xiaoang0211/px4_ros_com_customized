@@ -48,6 +48,7 @@
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/math.hpp>
 #include <limits>
+#include <mutex>
 #include <px4_msgs/msg/collision_constraints.hpp>
 #include <px4_msgs/msg/obstacle_distance.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
@@ -85,7 +86,7 @@ public:
 	 * 
 	 */
 	void setObstacleDistance(const ObstacleDistance& msg);
-	void setCurrentAttitude(const matrix::Quatf quat);
+	void setCurrentAttitude(const std::array<float, 4> quat);
 
 	/**
 	 * @brief Getters for output data
@@ -111,14 +112,6 @@ protected:
 	uint64_t _data_timestamps[sizeof(_obstacle_map_body_frame.distances) / sizeof(_obstacle_map_body_frame.distances[0])];
 	uint16_t _data_maxranges[sizeof(_obstacle_map_body_frame.distances) / sizeof(
 										    _obstacle_map_body_frame.distances[0])]; /**< in cm */
-
-	// the messages streamed through subscription
-    ObstacleDistance current_obstacle_distance;
-    matrix::Quatf current_quat;
-
-	// flags for checking if new message is received
-    bool _obstacle_distance_received;
-    bool _vehicle_attitude_received;
 
 	/**
 	 * Updates obstacle distance message with measurement from offboard
@@ -156,19 +149,30 @@ protected:
 	virtual hrt_duration getElapsedTime(const hrt_abstime& start_time);
 
 private:
+	// Mutex to protect shared variables: current_obstacle_distance and current_quat
+	mutable std::shared_mutex data_mutex;
+
+	// the messages streamed through subscription
+    ObstacleDistance current_obstacle_distance;
+    matrix::Quatf current_quat;
+	// safe copies of the streamed input messages that we use in the calculation 
+	ObstacleDistance obstacle_distance;
+    matrix::Quatf quat;
+	// flags for checking if new message is received
+    bool _obstacle_distance_received;
+    bool _vehicle_attitude_received;
+
+
 	// Parameters
 	CollisionPreventionParameters _params;
-	// ros logger
+
+	// ROS logger
 	rclcpp::Logger logger_;
 
 	bool _interfering{false};		/**< states if the collision prevention interferes with the user input */
 	bool _was_active{false};		/**< states if the collision prevention interferes with the user input */
 
-	// the snapshots of the streamed input messages that we use in the calculation 
-	ObstacleDistance obstacle_distance;
-    matrix::Quatf quat;
-
-	// constraints should be published by the ros node OffboardControl
+	// Collision prevention constraints should be published by the ros node OffboardControl
 	CollisionConstraints constraints;
 
 	hrt_abstime _last_timeout_warning{0};
