@@ -19,3 +19,64 @@ Use the [Issues](https://github.com/PX4/px4_ros_com/issues) section to create a 
 ## Questions and troubleshooting
 
 Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dronecode).
+
+## Demo of Random Exploration
+
+This project demonstrates random exploration of a drone using ROS2 Humble, Gazebo Sim (Garden), and PX4-Autopilot v1.15.0.
+
+![Random Exploration Demo](./demo/demo_random_explore.gif)
+
+---
+
+### Prerequisites
+
+1. **PX4-Autopilot v1.15.0**  
+   Follow the [official PX4 documentation](https://docs.px4.io/v1.15/en/ros2/user_guide.html) for installation.  
+   Note: This version does not include our customized drone model with a mono camera and 2D LiDAR.  
+   Download the customized model from [here](#).
+
+2. **Workspace Setup**  
+   Clone and build the necessary repositories:
+
+   ```bash
+   mkdir -p ws_offboard_control/src
+   cd ws_offboard_control/src
+   git clone https://github.com/PX4/px4_msgs
+   git clone https://github.com/Xiaoang0211/px4_ros_com_customized
+   cd ..
+   colcon build
+   ```
+
+### Running the Demo
+
+1. **Initialize the Drone in Baylands (with CUDA support)**
+
+    ```bash
+    cd ~/PX4-Autopilot/
+    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia make px4_sitl gz_x500_cam_2dlidar_baylands
+    ```
+
+2. **Publish Camera and LiDAR Topics**  
+   Open a new terminal and run:
+
+    ```bash
+    cd ws_offboard_control
+    source install/local_setup.bash
+    ros2 run px4_ros_com_customized drone_advertiser
+    ```
+
+3. **Run Random Exploration with Offboard Control**  
+   Open another terminal and execute:
+
+    ```bash
+    cd ws_offboard_control
+    source install/local_setup.bash
+    ros2 run px4_ros_com_customized OffboardControl
+    ```
+
+---
+
+### Notes
+
+- Ensure you are using PX4-Autopilot v1.15.0 for compatibility.  
+- Replace `__NV_PRIME_RENDER_OFFLOAD=1` and `__GLX_VENDOR_LIBRARY_NAME=nvidia` with your GPU-specific commands if not using NVIDIA.
