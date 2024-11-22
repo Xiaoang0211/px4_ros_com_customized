@@ -80,3 +80,11 @@ This project demonstrates random exploration of a drone using ROS2 Humble, Gazeb
 
 - Ensure you are using PX4-Autopilot v1.15.0 for compatibility.  
 - Replace `__NV_PRIME_RENDER_OFFLOAD=1` and `__GLX_VENDOR_LIBRARY_NAME=nvidia` with your GPU-specific commands if not using NVIDIA.
+
+---
+
+### TODOs
+
+1. Testing the collision prevention module.
+2. Using RViz to visualize trajectory.
+3. Testing [okvis2](https://github.com/smartroboticslab/okvis2) and visualize point set in RViz
