@@ -13,14 +13,15 @@
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
+using namespace matrix;
 
 OffboardControl::OffboardControl() 
     : Node("offboard_control"), 
     start_exploring_(false),
     offboard_setpoint_counter_(0),
     counter(0),
-    collision_prevention_({1.0f, 0.1f, 45.0f, true, 1.0f, 1.0f, 1.0f})
-{
+    collision_prevention_({0.7f, 0.4f, 30.0f, false, 0.95f, 0.5f, 1.0f, 1.8f, 11.98f})
+{   
     qos_profile = rmw_qos_profile_sensor_data;
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
@@ -47,31 +48,23 @@ OffboardControl::OffboardControl()
         "/fmu/out/vehicle_odometry", qos,
         [this](const VehicleOdometry::SharedPtr msg) {
             // Getting the current vehicle position and velocity through uorb topic VehicleOdometry
-            // Update current velocity in RandomExplore
-            random_explore_.setCurrentVelocity(msg->velocity[0], msg->velocity[1], msg->velocity[2]);
-
             // Update current position and velocity in OffboardControl
-            this->setCurrentXYPosition(msg->position[0], msg->position[1]);
-            this->setCurrentXYVelocity(msg->velocity[0], msg->velocity[1]);
+            this->setCurrentPosition(msg->position[0], msg->position[1], msg->position[2]);
+            this->setCurrentVelocity(msg->velocity[0], msg->velocity[1], msg->velocity[2]);
 
             // const &q = msg->q;
             const std::array<float, 4> &q = msg->q;
-            float siny_cosp = 2.0 * (q[0] * q[3] + q[1] * q[2]);
-            float cosy_cosp = 1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3]);
-            float current_yaw = std::atan2(siny_cosp, cosy_cosp) * 180.0 / M_PI; // Convert to degrees
-            // Update current yaw in RandomExplore
-            random_explore_.setCurrentYaw(current_yaw);
+            current_yaw = Eulerf(Quatf(q.data())).psi(); // yaw angle in radians
 
-            // Update current vehicle attitude in CollisionPrevention
-            collision_prevention_.setCurrentAttitude(q);
+            // Update current yaw and velocities for RandomExplore
+            random_explore_.setCurrentVelocity(msg->velocity[0], msg->velocity[1], msg->velocity[2]);
+            random_explore_.setCurrentYaw(math::degrees(current_yaw));
 
+            // Update current vehicle odometry for CollisionPrevention
+            collision_prevention_.setVehicleOdometry(current_yaw, current_velocity.xy());
         });
 
-    // initialize to 0 ensure they do not have any garbage values
-    current_xy_position = matrix::Vector2f({0.0, 0.0});
-    current_xy_velocity = matrix::Vector2f({0.0, 0.0});
-
-	last_time_ = this->get_clock()->now();
+	// last_time_ = this->get_clock()->now();
 
     auto timerCallback = [this]() -> void {
         if (offboard_setpoint_counter_ == 10) {
@@ -81,37 +74,47 @@ OffboardControl::OffboardControl()
 				this->arm();
 		}
 
-        if (offboard_setpoint_counter_ >= 11 && offboard_setpoint_counter_ < 500) {
+        if (offboard_setpoint_counter_ >= 11 && offboard_setpoint_counter_ < 100) {
             // take off to starting point (0.0, 0.0, -10.0)
-            setpoint_x = 0.0;
-            setpoint_y = 0.0;
-            setpoint_z = -10.0;
-        } else if (offboard_setpoint_counter_ == 500)
-        {   
+            _position_setpoint(0) = 0.0;
+            _position_setpoint(1) = 0.0;
+            _altitude_setpoint = -10.0;
+        } else if (offboard_setpoint_counter_ == 100) {   
             start_exploring_ = true;
             RCLCPP_INFO(this->get_logger(), "Start exploring...");
         }
 
         if (start_exploring_) {
             counter += 1;
-            if (counter == 50) {
+            if (counter >= counter_limit) {
+
                 // generate a new random action
                 random_explore_.performRandomAction();
-                random_explore_.getSetpoint(setpoint_vx, setpoint_vy, setpoint_vz, setpoint_yaw); // set point of xyz direction velocities
-                // Reset the counter after executing the action for 5 seconds
+                random_explore_.getActionType(action);
+
+                // // go straight for testing collision prevention
+                // random_explore_.goStraight();
+          
+
+                random_explore_.getSetpoint(_velocity_setpoint(0), 
+                                            _velocity_setpoint(1), 
+                                            _altitude_velocity_setpoint, 
+                                            _yaw_setpoint);
                 counter = 0;
             } 
-            auto current_time = this->get_clock()->now();
-            float dt = (current_time.nanoseconds() - last_time_.nanoseconds()) / 1e9; // seconds
-            // update the position setpoint
-            setpoint_x = current_xy_position(0) + setpoint_vx * dt;
-            setpoint_y = current_xy_position(1) + setpoint_vy * dt;
-            
-            // TODO: add collision prevention here to constrain setpoint
-            // collision_prevention_.modifySetpoint(vel_setpoint, max_speed, current_xy_position, current_xy_velocity);
+            // generate collision-free setpoints
+            // auto current_time = this->get_clock()->now();
+            // float dt = (current_time.nanoseconds() - last_time_.nanoseconds()) / 1e9; // seconds
+            generateSetpoints(current_position, current_velocity.xy());
+            // last_time_ = current_time;
 
-            // setpoint_z = setpoint_vz * dt;
-            last_time_ = current_time;
+            if (action == RandomExplore::Action::ROTATE) {
+                if (counter >= counter_limit * 0.25 && counter <= counter_limit * 0.75) {
+                    _yaw_speed_setpoint = 0.2181662; // Flip direction
+                } else {
+                    _yaw_speed_setpoint = -0.2181662;
+                }
+            }
 
             publishCollisionConstraints();
             publishObstacleDistanceFused();
@@ -122,12 +125,67 @@ OffboardControl::OffboardControl()
         publishTrajectorySetpoint();
 
         // Increase the setpoint counter before starting with exploring
-        if (offboard_setpoint_counter_ < 501) {
+        if (offboard_setpoint_counter_ < 101) {
             offboard_setpoint_counter_++;
         }
     };
-
     timer_ = this->create_wall_timer(100ms, timerCallback);
+}
+
+/**
+ * @brief this comes after the random action generation to 
+ * get the feasible and collision free setpoints for acce-
+ * -leration and velocity.
+ * 
+ */
+void OffboardControl::generateSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy)
+{   
+    // activate collision prevention by setting cp_dist to positive value
+    if (collision_prevention_.is_active()) {
+        collision_prevention_.modifySetpoint(_velocity_setpoint, _yaw_setpoint);
+    }
+    
+	lockPosition(current_pos, current_vel_xy);
+    // Vector2f current_pos_xy  = current_pos.xy();
+    // _position_setpoint(0) = current_pos_xy(0) + _velocity_setpoint(0) * dt;
+    // _position_setpoint(1) = current_pos_xy(1) + _velocity_setpoint(1) * dt;
+}
+
+void OffboardControl::VelocitySmoothing(const float alpha)
+{
+    _velocity_setpoint(0) = alpha * _velocity_setpoint(0) + (1.0f - alpha) * _velocity_setpoint_prev(0);
+    _velocity_setpoint(1) = alpha * _velocity_setpoint(1) + (1.0f - alpha) * _velocity_setpoint_prev(1);
+
+    // update the previous velocity setpoint
+    _velocity_setpoint_prev = _velocity_setpoint;
+}
+
+/**
+ * @brief 
+ * 
+ * @param pos current position x y z
+ * @param vel_sp_feedback current horizontal veclocity vx
+ * @param dt 
+ */
+void OffboardControl::lockPosition(const Vector3f &pos, const Vector2f &vel_sp_feedback)
+{
+	const bool moving = _velocity_setpoint.norm_squared() > FLT_EPSILON;
+	const bool position_locked = Vector2f(_position_setpoint).isAllFinite();
+
+	// lock position
+	if (!moving && !position_locked) {
+		_position_setpoint = pos.xy();
+	}
+
+	// open position loop, horizontal again in velocity control mode
+	if (moving && position_locked) {
+		_position_setpoint.setNaN();
+
+		// // avoid velocity setpoint jump caused by ignoring remaining position error
+		// if (vel_sp_feedback.isAllFinite()) {
+		// 	_velocity_setpoint = vel_sp_feedback;
+		// }
+	}
 }
 
 void OffboardControl::arm()
@@ -174,11 +232,14 @@ void OffboardControl::publishOffboardControlMode()
 void OffboardControl::publishTrajectorySetpoint()
 {	
     TrajectorySetpoint msg{};
-    // msg.position = {0.0, 0.0, -5.0};
-    msg.position = {setpoint_x, setpoint_y, setpoint_z};
-    msg.velocity = {setpoint_vx, setpoint_vy, setpoint_vz};
-    msg.yaw = setpoint_yaw;
-    msg.yawspeed = 0.314;
+    // RCLCPP_INFO(this->get_logger(), "Position Setpoint: [%f, %f, %f]", _position_setpoint(0), _position_setpoint(1), _altitude_setpoint);
+    // RCLCPP_INFO(this->get_logger(), "Position: [%f, %f, %f]", current_position(0), current_position(1), current_position(2));
+    // RCLCPP_INFO(this->get_logger(), "Velocity Setpoint: [%f, %f, %f]", _velocity_setpoint(0), _velocity_setpoint(1), _altitude_velocity_setpoint);
+    // RCLCPP_INFO(this->get_logger(), "Velocity: [%f, %f, %f]", current_velocity(0), current_velocity(1), current_velocity(2));
+    msg.position = {_position_setpoint(0), _position_setpoint(1), _altitude_setpoint};
+    msg.velocity = {_velocity_setpoint(0), _velocity_setpoint(1), _altitude_velocity_setpoint};
+    msg.yaw = _yaw_setpoint;
+    msg.yawspeed = _yaw_speed_setpoint; // yaw speed is constant
     msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     trajectory_setpoint_publisher_->publish(msg);
 }
@@ -199,18 +260,20 @@ void OffboardControl::publishObstacleDistanceFused()
     obstacle_distance_fused_publisher_->publish(obstacle_distance_fused_msg_);
 }
 
-void OffboardControl::setCurrentXYPosition(const float x, const float y)
+void OffboardControl::setCurrentPosition(const float x, const float y, const float z)
 {   
     // NED eath fixed frame
-    current_xy_position(0) = x;
-    current_xy_position(1) = y;
+    current_position(0) = x;
+    current_position(1) = y;
+    current_position(2) = z;
 }
 
-void OffboardControl::setCurrentXYVelocity(const float vx, const float vy)
+void OffboardControl::setCurrentVelocity(const float vx, const float vy, const float vz)
 {   
     // NED eath fixed frame
-    current_xy_velocity(0) = vx;
-    current_xy_velocity(1) = vy;
+    current_velocity(0) = vx;
+    current_velocity(1) = vy;
+    current_velocity(2) = vz;
 }
 
 int main(int argc, char *argv[])

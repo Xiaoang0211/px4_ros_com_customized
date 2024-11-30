@@ -1,4 +1,13 @@
-// offboard_control.hpp
+/**
+ * @file OffboardControl.hpp
+ * @author Xiaoang Zhang (jesse1008611@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2024-11-25
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
 
 #pragma once
 
@@ -14,6 +23,7 @@
 
 using namespace px4_msgs::msg;
 using namespace std::chrono_literals;
+using namespace matrix;
 
 class OffboardControl : public rclcpp::Node
 {
@@ -21,8 +31,8 @@ public:
     OffboardControl();
     ~OffboardControl() override = default;
 
-    void setCurrentXYPosition(const float x, const float y);
-    void setCurrentXYVelocity(const float vx, const float vy);
+    void setCurrentPosition(const float x, const float y, const float z);
+    void setCurrentVelocity(const float vx, const float vy, const float vz);
     
     rmw_qos_profile_t qos_profile;
 
@@ -46,23 +56,42 @@ private:
     CollisionConstraints collision_constraints_msg_;
     ObstacleDistance obstacle_distance_fused_msg_;
 
-    // setpoints obtained by RandomExplore with collision prevention
-    float setpoint_x, setpoint_y, setpoint_z;
-    float setpoint_vx, setpoint_vy, setpoint_vz;
-    float setpoint_yaw;
+    // action type obtained by RandomExplore
+    RandomExplore::Action action;
+    // horizontal position, velocity, acceleration setpoint
+    Vector2f _position_setpoint;
+    Vector2f _velocity_setpoint;
+    Vector2f _velocity_setpoint_prev;
+    // altitude setting
+    float _altitude_setpoint;
+    float _altitude_velocity_setpoint;
+
+    // yaw (in earth-fixed NED frame) setpoint
+    float _yaw_setpoint;
+    float _yaw_speed_setpoint;
+
     bool start_exploring_;
-    rclcpp::Time last_time_;                 // Track time for integration
+    // rclcpp::Time last_time_;                 // Track time for integration
     int counter;
+    int counter_limit{120};
 
     // Random exploration
     RandomExplore random_explore_;
 
     // Collision Prevention
     CollisionPrevention collision_prevention_;
-	matrix::Vector2f current_xy_position, current_xy_velocity;
+
+    // current drone states
+	Vector3f current_position{0.0, 0.0, 0.0};
+    Vector3f current_velocity{0.0, 0.0, 0.0};
+    float current_yaw;
 
     // Offboard control state
     uint64_t offboard_setpoint_counter_;
+
+    void generateSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy);
+    void VelocitySmoothing(const float alpha);
+    void lockPosition(const Vector3f &pos, const Vector2f &vel_sp_feedback);
 
     // Timer callback
     void timerCallback();

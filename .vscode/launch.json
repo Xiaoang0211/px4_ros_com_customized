@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug OffboardControl",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/xiaoang/ws_offboard_control/install/px4_ros_com/lib/px4_ros_com/OffboardControl",
+            "args": [], // Add command-line arguments if required
+            "stopAtEntry": false,
+            "cwd": "/home/xiaoang/ws_offboard_control", // Set the working directory
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb", // Use GDB for debugging
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

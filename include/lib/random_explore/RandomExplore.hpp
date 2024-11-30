@@ -11,8 +11,6 @@
 
 #pragma once
 
-#pragma once
-
 #include <float.h>
 #include <chrono>
 #include <lib/mathlib/mathlib.h>
@@ -31,7 +29,11 @@ public:
     RandomExplore();
     ~RandomExplore() = default;
 
+    // enum class Action { MOVE_HORIZONTAL = 0, ROTATE, ASCEND, DESCEND };
+    enum class Action { MOVE_HORIZONTAL = 0, ROTATE, MOVE_FORWARD };
+
     void performRandomAction();
+    void goStraight();
 
     // Setters for current state in NED frame from VehicleLocalPosition message
     void setCurrentPosition(const float x, const float y, const float z);
@@ -42,14 +44,16 @@ public:
     void setObstacleDistance(const ObstacleDistance &msg);
 
     // getters for setpoint and yaw
-    void getSetpoint(float &x, float &y, float &z, float &yaw);
+    void getSetpoint(float &vx, float &vy, float &vz, float &yaw);
+    void getActionType(Action &act_typ);
+    
     
 protected:
 
     // action functions
     void moveHorizontal(float velocity, float direction);
     void moveForward(float velocity);
-    void rotateYaw(float angle);
+    void rotateYaw();
     void changeAltitude(float delta_z);
 
     // Random number generators
@@ -59,9 +63,6 @@ protected:
     std::uniform_real_distribution<float> vel_direction_;
     std::uniform_real_distribution<float> delta_yaw_;
     // std::uniform_real_distribution<float> vel_altitude_;
-
-    // enum class Action { MOVE_HORIZONTAL = 0, ROTATE, ASCEND, DESCEND };
-    enum class Action { MOVE_HORIZONTAL = 0, ROTATE, MOVE_FORWARD };
 
     Action getRandomAction();
 
@@ -81,5 +82,7 @@ protected:
 private:
     // ros logger
 	rclcpp::Logger logger_;
+    // action type
+    Action action;
 };
 

@@ -34,6 +34,7 @@
 /**
  * @file CollisionPrevention.hpp
  * @author Tanja Baumann <tanja@auterion.com>
+ * @author Claudio Chies <claudio@chies.com>
  * @author Xiaoang Zhang <jesse1008611@gmail.com>
  *
  * CollisionPrevention controller.
@@ -58,16 +59,27 @@ using hrt_abstime = uint64_t; // in nano seconds
 using hrt_duration = uint64_t;
 using namespace px4_msgs::msg;
 using namespace std::chrono_literals;
+using namespace matrix;
+
+namespace
+{
+static constexpr int BIN_SIZE = 5; //cannot be lower than 5 degrees, should divide 360 evenly
+static constexpr int BIN_COUNT = 360 / BIN_SIZE;
+static constexpr uint64_t RANGE_STREAM_TIMEOUT_US = std::chrono::duration_cast<std::chrono::nanoseconds>(500ms).count();
+} // namespace
+
 
 struct CollisionPreventionParameters
 {
 	float cp_dist;
 	float cp_delay;
 	float cp_guide_ang;
-	bool cp_go_nodata;
+	bool cp_go_no_data;
 	float mpc_xy_p;
 	float mpc_jerk_max;
 	float mpc_acc_hor;
+	float mpc_vel_p_acc; /**< p gain from velocity controller*/
+	float mpc_xy_vel_max; /**< maximum velocity in offboard control mode*/
 };
 
 class CollisionPrevention
@@ -86,7 +98,7 @@ public:
 	 * 
 	 */
 	void setObstacleDistance(const ObstacleDistance& msg);
-	void setCurrentAttitude(const std::array<float, 4> quat);
+	void setVehicleOdometry(const float yaw, const Vector2f current_vel);
 
 	/**
 	 * @brief Getters for output data
@@ -102,66 +114,73 @@ public:
 	 * @param curr_pos, current vehicle position
 	 * @param curr_vel, current vehicle velocity
 	 */
-	void modifySetpoint(matrix::Vector2f &original_setpoint, const float max_speed,
-			    const matrix::Vector2f &curr_pos, const matrix::Vector2f &curr_vel);
+	void modifySetpoint(Vector2f& setpoint_vel, float& setpoint_yaw);
+
 
 protected:
 
 	ObstacleDistance _obstacle_map_body_frame;
-	bool _data_fov[sizeof(_obstacle_map_body_frame.distances) / sizeof(_obstacle_map_body_frame.distances[0])];
-	uint64_t _data_timestamps[sizeof(_obstacle_map_body_frame.distances) / sizeof(_obstacle_map_body_frame.distances[0])];
-	uint16_t _data_maxranges[sizeof(_obstacle_map_body_frame.distances) / sizeof(
-										    _obstacle_map_body_frame.distances[0])]; /**< in cm */
-
-	/**
-	 * Updates obstacle distance message with measurement from offboard
-	 * @param obstacle, obstacle_distance message to be updated
-	 */
-	void _addObstacleSensorData(const ObstacleDistance &obstacle, const matrix::Quatf &vehicle_attitude);
-
-	/**
-	 * Computes an adaption to the setpoint direction to guide towards free space
-	 * @param setpoint_dir, setpoint direction before collision prevention intervention
-	 * @param setpoint_index, index of the setpoint in the internal obstacle map
-	 * @param vehicle_yaw_angle_rad, vehicle orientation
-	 */
-	void _adaptSetpointDirection(matrix::Vector2f &setpoint_dir, int &setpoint_index, float vehicle_yaw_angle_rad);
-
-	/**
-	 * Determines whether a new sensor measurement is used
-	 * @param map_index, index of the bin in the internal map the measurement belongs in
-	 * @param sensor_range, max range of the sensor in meters
-	 * @param sensor_reading, distance measurement in meters
-	 */
-	bool _enterData(int map_index, float sensor_range, float sensor_reading);
-
-	/**
-	 * Computes collision free setpoints
-	 * @param setpoint, setpoint before collision prevention intervention
-	 * @param curr_pos, current vehicle position
-	 * @param curr_vel, current vehicle velocity
-	 */
-	void _calculateConstrainedSetpoint(matrix::Vector2f &setpoint, const matrix::Vector2f &curr_pos,
-					   const matrix::Vector2f &curr_vel);
+	bool _data_fov[BIN_COUNT] {};
+	uint64_t _data_timestamps[BIN_COUNT] {};
+	uint16_t _data_maxranges[BIN_COUNT] {}; /**< in cm */
 
 	//Timing functions. Necessary to mock time in the tests
 	virtual hrt_abstime getTime();
 	virtual hrt_duration getElapsedTime(const hrt_abstime& start_time);
 
-private:
-	// Mutex to protect shared variables: current_obstacle_distance and current_quat
-	mutable std::shared_mutex data_mutex;
+	/**
+	 * Aggregates the sensor data into a internal obstacle map in body frame
+	 */
+	void _updateObstacleMap();
 
+	void _addObstacleSensorData(const ObstacleDistance &obstacle, const float vehicle_yaw);
+
+	bool _enterData(int map_index, float sensor_range, float sensor_reading);
+
+	void _updateObstacleData();
+
+    void _adaptSetpointDirection(Vector2f &setpoint_dir, int &setpoint_index, float &setpoint_yaw);
+
+	bool _checkSetpointDirectionFeasibility();
+
+	bool _concaveDetection(const Vector2f velocity_dir);
+
+	int _getDirectionIndexBodyFrame(const Vector2f &direction);
+
+	Vector2f _getPointVelocityFrame(int bin_index, const Vector2f &velocity_dir, const Vector2f &right_dir);
+
+	float _getObstacleDistance(const Vector2f &direction);
+
+	float _getScale(const float &reference_distance);
+
+private:
+	std::shared_mutex data_mutex;
 	// the messages streamed through subscription
     ObstacleDistance current_obstacle_distance;
-    matrix::Quatf current_quat;
-	// safe copies of the streamed input messages that we use in the calculation 
-	ObstacleDistance obstacle_distance;
-    matrix::Quatf quat;
-	// flags for checking if new message is received
-    bool _obstacle_distance_received;
-    bool _vehicle_attitude_received;
+    float current_yaw;
+	Vector2f current_vel; /**<current xy position> */
 
+	// safe copies of the streamed input messages that we use in the calculation 
+	ObstacleDistance _obstacle_distance;
+
+	// current yaw and velocity in ned frame
+	float _vehicle_yaw{0.f}; // rad
+	Vector2f _vehicle_vel{0.f, 0.f};
+
+	bool _obstacle_data_present{false};		/**< states if obstacle data is present */
+	bool _was_active{false};				/**< states if the collision prevention interferes with the user input */
+	bool _is_concave{false};
+	int _setpoint_index{};
+	Vector2f _setpoint_dir{};		/**< direction of the setpoint*/
+	
+	float _closest_dist{};
+	Vector2f _closest_dist_dir{NAN, NAN};
+
+	float _min_dist_to_keep{};
+
+	// flags for checking if new message is received
+    bool _obstacle_distance_received{false};
+    bool _vehicle_odometry_received{false};
 
 	// Parameters
 	CollisionPreventionParameters _params;
@@ -169,17 +188,15 @@ private:
 	// ROS logger
 	rclcpp::Logger logger_;
 
-	bool _interfering{false};		/**< states if the collision prevention interferes with the user input */
-	bool _was_active{false};		/**< states if the collision prevention interferes with the user input */
-
 	// Collision prevention constraints should be published by the ros node OffboardControl
 	CollisionConstraints constraints;
 
 	hrt_abstime _last_timeout_warning{0};
 	hrt_abstime _time_activated{0};
 
-	/**
-	 * Aggregates the sensor data into a internal obstacle map in body frame
-	 */
-	void _updateObstacleMap();
+	void _calculateConstrainedSetpoint(Vector2f &setpoint_vel, const Vector2f &_vehicle_vel, float &setpoint_yaw, const float &_vehicle_yaw);
+
+
+	static float _wrap_360(const float f);
+	static int _wrap_bin(int i);
 };
