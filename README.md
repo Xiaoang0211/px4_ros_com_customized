@@ -20,12 +20,6 @@ Use the [Issues](https://github.com/PX4/px4_ros_com/issues) section to create a 
 
 Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dronecode).
 
-## Demo of Random Exploration
-
-This project demonstrates random exploration of a drone using ROS2 Humble, Gazebo Sim (Garden), and PX4-Autopilot v1.15.0.
-
-![Random Exploration Demo](./demo/demo_random_explore.gif)
-
 ---
 
 ### Prerequisites
@@ -35,7 +29,13 @@ This project demonstrates random exploration of a drone using ROS2 Humble, Gazeb
    Note: This version does not include our customized drone model with a mono camera and 2D LiDAR.  
    Download the customized model from [here](#).
 
-2. **Workspace Setup**  
+2. **ROS 2 Humble**  
+   Ensure you have **ROS 2 Humble Hawksbill** installed on your system. Follow the [official ROS 2 installation guide](https://docs.ros.org/en/humble/Installation.html) for instructions.
+
+3. **Gazebo Sim (Garden)**  
+   Install **Gazebo Sim Garden**, the latest version of Gazebo Sim. Instructions are available in the [official Gazebo Sim documentation](https://gazebosim.org/docs/garden/install).
+
+4. **Workspace Setup**  
    Clone and build the necessary repositories:
 
    ```bash
@@ -45,7 +45,7 @@ This project demonstrates random exploration of a drone using ROS2 Humble, Gazeb
    git clone https://github.com/Xiaoang0211/px4_ros_com_customized
    cd ..
    colcon build
-   ```
+
 
 ### Running the Demo
 
