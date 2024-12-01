@@ -17,7 +17,7 @@ The drone employs three types of random exploration policies for exploration new
 3. **Horizontal Movement:**  
    The drone moves horizontally in a random direction with a randomly sampled velocity magnitude.
 
-![Random Exploration Demo](./demo_random_explore.gif)
+![Random Exploration Demo](./random_explore_demo.gif)
 
 ---
 
