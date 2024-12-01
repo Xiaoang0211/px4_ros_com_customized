@@ -31,7 +31,8 @@ Two types of **Collision Prevention** policies are implemented to handle concave
    ![Concave Space Demo](./concave_demo.gif)
 
 2. **Non-Concave Space Handling:**  
-   - The drone's velocity vector is adjusted to move **perpendicular to the closest obstacle**.
+   - The drone's velocity vector is adjusted to be **perpendicular to the closest obstacle**.  
+   - In cases where the drone is flying towards a wall, the velocity will be adjusted to run **parallel to the wall**, allowing smooth navigation along the obstacle.
    - The camera's yaw angle is aligned opposite to the direction of the closest obstacle, enhancing environmental awareness.
 
    ![Non-Concave Space Demo](./nonconcave_demo.gif)
