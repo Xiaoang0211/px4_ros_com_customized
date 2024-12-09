@@ -57,7 +57,7 @@ Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dr
     ```
 
 2. **Launch the Drone to Random Explore Baylands**  
-   Launch random exploration using the default model and world:
+   Launch random exploration using the default model and world (baylands):
    ```bash
     ros2 launch px4_ros_com offboard_control.launch.xml
    ```
