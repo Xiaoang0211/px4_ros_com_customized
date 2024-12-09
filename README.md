@@ -56,7 +56,7 @@ Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dr
    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia make px4_sitl gz_x500_cam_2dlidar_baylands
     ```
 
-2. **Publish Camera and LiDAR Topics**  
+2. **Launch the Drone to Random Explore Baylands**  
    Launch random exploration using the default model and world:
    ```bash
     ros2 launch px4_ros_com offboard_control.launch.xml
