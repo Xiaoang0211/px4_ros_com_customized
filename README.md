@@ -51,29 +51,25 @@ Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dr
 
 1. **Initialize the Drone in Baylands (with CUDA support)**
 
-    ```bash
-    cd ~/PX4-Autopilot/
-    __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia make px4_sitl gz_x500_cam_2dlidar_baylands
+   ```bash
+   cd ~/PX4-Autopilot/
+   __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia make px4_sitl gz_x500_cam_2dlidar_baylands
     ```
 
 2. **Publish Camera and LiDAR Topics**  
-   Open a new terminal and run:
-
-    ```bash
-    cd ws_offboard_control
-    source install/local_setup.bash
-    ros2 run px4_ros_com_customized drone_advertiser
-    ```
-
-3. **Run Random Exploration with Offboard Control**  
-   Open another terminal and execute:
-
-    ```bash
-    cd ws_offboard_control
-    source install/local_setup.bash
-    ros2 run px4_ros_com_customized OffboardControl
-    ```
-
+   Launch random exploration using the default model and world:
+   ```bash
+    ros2 launch px4_ros_com offboard_control.launch.xml
+   ```
+   If you want to specify a different model or world:
+   ```bash
+    ros2 launch px4_ros_com offboard_control.launch.xml model_world:=<ModelName_WorldName>
+   ```
+   For example:
+   ```bash
+    ros2 launch px4_ros_com offboard_control.launch.xml model_world:=x500_cam_2dlidar_walls
+   ```
+   **Note:** If the parameter `cp_dist` (the first parameter of `collision_prevention_` in `OffboardControl.cpp`) is positive, collision prevention is activated.
 ---
 
 ### Notes

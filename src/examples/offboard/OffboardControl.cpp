@@ -78,6 +78,7 @@ OffboardControl::OffboardControl()
             // take off to starting point (0.0, 0.0, -10.0)
             _position_setpoint(0) = 0.0;
             _position_setpoint(1) = 0.0;
+            _yaw_setpoint = 0.0;
             _altitude_setpoint = -10.0;
         } else if (offboard_setpoint_counter_ == 100) {   
             start_exploring_ = true;
@@ -141,8 +142,17 @@ OffboardControl::OffboardControl()
 void OffboardControl::generateSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy)
 {   
     // activate collision prevention by setting cp_dist to positive value
+
     if (collision_prevention_.is_active()) {
+        auto start_time = std::chrono::steady_clock::now(); // Start time
+        
         collision_prevention_.modifySetpoint(_velocity_setpoint, _yaw_setpoint);
+        
+        auto end_time = std::chrono::steady_clock::now(); // End time
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        
+        // RCLCPP_INFO(this->get_logger(), 
+        //             "Collision prevention runtime: %ld microseconds", duration);
     }
     
 	lockPosition(current_pos, current_vel_xy);

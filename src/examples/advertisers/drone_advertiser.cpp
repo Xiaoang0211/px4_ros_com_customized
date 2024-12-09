@@ -27,7 +27,7 @@ public:
 	DroneAdvertiser(const std::string &cameraInfoTopic, 
                     const std::string &imageTopic, 
                     const std::string &laserScanTopic) 
-    : Node("gz_drone_advertiser")
+    : Node("drone_advertiser")
     {
         ros_image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/gz_camera/image", 10);
         ros_camera_info_pub_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("/gz_camera/camera_info", 10);
@@ -220,10 +220,24 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
 
+    std::string model_name = "x500_cam_2dlidar";
+    std::string world_name = "baylands";
+
+    if (argc < 1) {
+        std::string input_arg = argv[1];
+        size_t underscore_pos = input_arg.find_last_of("_");
+        if (underscore_pos != std::string::npos) {
+            model_name = input_arg.substr(0, underscore_pos);
+            world_name = input_arg.substr(underscore_pos + 1);
+        } else {
+            RCLCPP_ERROR(rclcpp::get_logger("drone_advertiser"), "Invalid argument format. Expected format: <lidar_model_name>_<world_name>");
+            return 1;
+        }
+    }
     // Gazebo Sim Topics to be subscribed
     std::string cameraInfoTopic = "/camera_info";
     std::string imageTopic = "/camera";
-    std::string laserScanTopic = "/world/walls/model/x500_cam_2dlidar_0/model/lidar/link/link/sensor/lidar_2d_v2/scan";
+    std::string laserScanTopic = "/world/"+ world_name + "/model/" + model_name + "_0/model/lidar/link/link/sensor/lidar_2d_v2/scan";
 
     // Instantiate GZROSCameraAdavertiser and start listening
     auto drone_advertiser = std::make_shared<DroneAdvertiser>(cameraInfoTopic, imageTopic, laserScanTopic);

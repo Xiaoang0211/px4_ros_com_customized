@@ -288,6 +288,10 @@ void CollisionPrevention::_updateObstacleData()
 	_obstacle_data_present = false;
 	_closest_dist = UINT16_MAX; // in meter
 	_closest_dist_dir.setZero();
+
+	_farthest_dist = 0.0; // in meter
+	_farthest_dist_dir.setZero();
+
 	for (int i = 0; i < BIN_COUNT; i++) {
 		// if the data is stale, reset the bin
 		if (getTime() - _data_timestamps[i] > RANGE_STREAM_TIMEOUT_US) {
@@ -308,6 +312,11 @@ void CollisionPrevention::_updateObstacleData()
 		if (bin_distance * 0.01f < _closest_dist) {
 			_closest_dist = bin_distance * 0.01f;
 			_closest_dist_dir = bin_direction;
+		}
+
+		if (bin_distance * 0.01f > _farthest_dist) {
+			_farthest_dist = bin_distance * 0.01f;
+			_farthest_dist_dir = bin_direction;
 		}
 	}
 }
@@ -343,6 +352,7 @@ void CollisionPrevention::_adaptSetpointDirection(Vector2f &setpoint_dir, int &s
 		// concave case
 		// update the velocity setpoint direction
 		setpoint_dir = -_closest_dist_dir;
+		// setpoint_dir = _farthest_dist_dir;
 		// update the yaw setpoint (rad)
 		setpoint_yaw = atan2f(setpoint_dir(1), setpoint_dir(0));
 	}
@@ -360,7 +370,7 @@ void CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint_vel, 
 		_setpoint_index = _getDirectionIndexBodyFrame(setpoint_vel);
 		// change setpoint direction slightly (max by _params.cp_guide_ang degrees) to help guide through narrow gaps
 		_setpoint_dir = setpoint_vel.unit_or_zero(); // setpoint direction, unit vector
-		RCLCPP_INFO(logger_, "Closest obstacle distance: %f", _closest_dist);
+		// RCLCPP_INFO(logger_, "Closest obstacle distance: %f", _closest_dist);
 		if (_closest_dist <= _params.cp_dist) {
 			_adaptSetpointDirection(_setpoint_dir, _setpoint_index, setpoint_yaw);
 		}
@@ -431,7 +441,7 @@ float CollisionPrevention::_getScale(const float &reference_distance)
 
 bool CollisionPrevention::_concaveDetection(const Vector2f velocity_dir)
 {
-    const float angle_range = math::radians(60.0f); // ±60° in radians
+    const float angle_range = math::radians(90.0f); // ±60° in radians
     const int num_points = 12; // Number of points to check
     const float step_size = 2 * angle_range / (num_points - 1); // Angular step size
 	const int velocity_bin = _getDirectionIndexBodyFrame(velocity_dir);
@@ -516,8 +526,6 @@ void CollisionPrevention::modifySetpoint(Vector2f& setpoint_vel, float &setpoint
 
 	// modify this function
 	_calculateConstrainedSetpoint(setpoint_vel, _vehicle_vel, setpoint_yaw, _vehicle_yaw);
-
-	RCLCPP_INFO(logger_, "new setpoint yaw: %f", setpoint_yaw);
 
 	// update collision constraints to UORB topic CollisionConstraints
 	original_setpoint_vel.copyTo(constraints.original_setpoint.data());

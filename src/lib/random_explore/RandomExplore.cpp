@@ -34,11 +34,11 @@ RandomExplore::RandomExplore() :
  */
 void RandomExplore::goStraight()
 {
-    setpoint_vel_.vx = 0.25;
-    setpoint_vel_.vy = 0.25;
+    setpoint_vel_.vx = -0.5;
+    setpoint_vel_.vy = 0.0;
     setpoint_vel_.vz = 0.0;
 
-    setpoint_yaw_ = 0.0;
+    setpoint_yaw_ = 180.0;
 }
 
 void RandomExplore::performRandomAction()
@@ -52,7 +52,7 @@ void RandomExplore::performRandomAction()
             float velocity = vel_horizontal_(rand_engine_);
             float direction = vel_direction_(rand_engine_);
             moveHorizontal(velocity, direction);
-            // RCLCPP_INFO(logger_, "Drone starts to move horizontally with vx: %f and vy: %f", setpoint_vel_.vx, setpoint_vel_.vy);
+            RCLCPP_INFO(logger_, "Drone starts to move horizontally with vx: %f and vy: %f", setpoint_vel_.vx, setpoint_vel_.vy);
             break;
         }
         case Action::ROTATE:
@@ -65,13 +65,13 @@ void RandomExplore::performRandomAction()
         {
             float velocity = vel_horizontal_(rand_engine_);
             moveForward(velocity);
-            // if (velocity >= 0) 
-            // {
-            //     RCLCPP_INFO(logger_, "Drone is moving forward with vx: %f and vy: %f", setpoint_vel_.vx, setpoint_vel_.vy);
-            // } else
-            // {
-            //     RCLCPP_INFO(logger_, "Drone is moving backward with vx: %f and vy: %f", setpoint_vel_.vx, setpoint_vel_.vy);
-            // }
+            if (velocity >= 0) 
+            {
+                RCLCPP_INFO(logger_, "Drone is moving forward with vx: %f and vy: %f", setpoint_vel_.vx, setpoint_vel_.vy);
+            } else
+            {
+                RCLCPP_INFO(logger_, "Drone is moving backward with vx: %f and vy: %f", setpoint_vel_.vx, setpoint_vel_.vy);
+            }
         }
         // case Action::ASCEND:
         // {

@@ -175,6 +175,8 @@ private:
 	
 	float _closest_dist{};
 	Vector2f _closest_dist_dir{NAN, NAN};
+	float _farthest_dist{};
+	Vector2f _farthest_dist_dir{NAN, NAN};
 
 	float _min_dist_to_keep{};
 

@@ -1,0 +1,20 @@
+<launch>
+    <!-- Define the model_world argument -->
+    <arg name="model_world" default="x500_cam_2dlidar_baylands" />
+    <!-- Launch the offboard_control node -->
+    <node
+        pkg="px4_ros_com"
+        exec="OffboardControl"
+        name="offboard_control"
+        output="screen">
+    </node>
+
+    <!-- Launch the drone_advertiser node -->
+    <node
+        pkg="px4_ros_com"
+        exec="drone_advertiser"
+        name="drone_advertiser"
+        output="screen">
+        <param name="model_world" value="$(var model_world)" />
+    </node>
+</launch>
