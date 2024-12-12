@@ -37,5 +37,15 @@ Two types of **Collision Prevention** policies are implemented to handle concave
 
    ![Non-Concave Space Demo](./nonconcave_demo.gif)
 
+## NoMaD Demo
+
+[NoMaD: Goal Masked Diffusion Policies for Navigation and Exploration](https://arxiv.org/pdf/2310.07896) has been successfully integrated into the current codebase. It can identify road paths, and modify the vehicle yaw angle to align with with road direction. 
+
+However, in certain situations, it selects paths (e.g., the yellow path shown in the demo video) that result in collisions.[demo video](https://drive.google.com/file/d/1Ra0ymba2Z3xgwwJOoG6dh5PbuQMNfDAU/view?usp=sharing)
+
+**Potential Quick Solutions:**
+1. Fine-tune the NoMaD model with goal-directed navigation for learning collision-free paths in baylands since NoMaD employs the unified diffusion policy model for both navigation and exploration.
+2. Change the policy of our collision prevention module, so that 
+   the drone always flies away from the obstacle regardless the concavity of the obstacle it faces.
 ---
 
