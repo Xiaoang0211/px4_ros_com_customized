@@ -1,25 +1,29 @@
 /**
- * @brief Offboard control with random exploration and collision prevention
- * @file offboard_ctrl.cpp
- * @addtogroup examples
- * @author Xiaoang Zhang <jesse1008611@gmail.com>
+ * @file NoMaD_control.cpp
+ * @author Xiaoang Zhang (jesse1008611@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2024-12-11
+ * 
+ * @copyright Copyright (c) 2024
+ * 
  */
 
 #include <stdint.h>
 #include <chrono>
 #include <iostream>
-#include <examples/offboard/OffboardControl.hpp>
+#include <app/offboard/NoMaD_control.hpp>
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
+using namespace geometry_msgs::msg;
 using namespace matrix;
 
-OffboardControl::OffboardControl() 
-    : Node("offboard_control"), 
+NoMaDControl::NoMaDControl() 
+    : Node("NoMaD_control"), 
     start_exploring_(false),
     offboard_setpoint_counter_(0),
-    counter(0),
     collision_prevention_({0.7f, 0.4f, 30.0f, false, 0.95f, 0.5f, 1.0f, 1.8f, 11.98f})
 {   
     qos_profile = rmw_qos_profile_sensor_data;
@@ -31,10 +35,7 @@ OffboardControl::OffboardControl()
         "/fmu/in/trajectory_setpoint", 10);
     vehicle_command_publisher_ = this->create_publisher<VehicleCommand>(
         "/fmu/in/vehicle_command", 10);
-    collision_constraints_publisher_ = this->create_publisher<CollisionConstraints>(
-        "collision_constraints", 10);
-    obstacle_distance_fused_publisher_ = this->create_publisher<ObstacleDistance>(
-        "obstacle_distance_fused", 10);
+    
     
     
     // initialize subscribers
@@ -56,69 +57,53 @@ OffboardControl::OffboardControl()
             const std::array<float, 4> &q = msg->q;
             current_yaw = Eulerf(Quatf(q.data())).psi(); // yaw angle in radians
 
-            // Update current yaw and velocities for RandomExplore
-            random_explore_.setCurrentVelocity(msg->velocity[0], msg->velocity[1], msg->velocity[2]);
-            random_explore_.setCurrentYaw(math::degrees(current_yaw));
-
             // Update current vehicle odometry for CollisionPrevention
             collision_prevention_.setVehicleOdometry(current_yaw, current_velocity.xy());
+        });
+
+    velocity_setpoint_subscriber_ = this->create_subscription<Twist>(
+        "/cmd_vel_mux/input/navi", qos, 
+        [this](const Twist::SharedPtr msg) {
+            // receive velocity control commads from NoMaD
+            // calculate the velocity in earth-fixed NED frame
+            _nomad_velocity(0) = msg->linear.x * cos(current_yaw);
+            _nomad_velocity(1) = msg->linear.x * sin(current_yaw);
+            _nomad_yaw_speed = msg->angular.z;
+            _last_time_nomad_received = this->get_clock()->now();
         });
 
 	// last_time_ = this->get_clock()->now();
 
     auto timerCallback = [this]() -> void {
         if (offboard_setpoint_counter_ == 10) {
-				// Change to Offboard mode after 1 second 
-				this->publishVehicleCommand(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
-				// Arm the vehicle
-				this->arm();
+            // Change to Offboard mode after 1 second 
+            this->publishVehicleCommand(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
+            // Arm the vehicle
+            this->arm();
 		}
 
         if (offboard_setpoint_counter_ >= 11 && offboard_setpoint_counter_ < 100) {
-            // take off to starting point (0.0, 0.0, -10.0)
+            // take off to the starting point (0.0, 0.0, -10.0)
             _position_setpoint(0) = 0.0;
             _position_setpoint(1) = 0.0;
             _yaw_setpoint = 0.0;
             _altitude_setpoint = -10.0;
         } else if (offboard_setpoint_counter_ == 100) {   
             start_exploring_ = true;
-            RCLCPP_INFO(this->get_logger(), "Start exploring...");
+            RCLCPP_INFO(this->get_logger(), "Start exploring with NoMaD...");
         }
 
+        // start velocity control mode for exploring
         if (start_exploring_) {
-            counter += 1;
-            if (counter >= counter_limit) {
+            // overwrite the velocity setpoint with the current NoMaD setpoint
+            getNoMaDSetpoint();
 
-                // generate a new random action
-                random_explore_.performRandomAction();
-                random_explore_.getActionType(action);
+            // set the vertical velocity to 0.0
+            _altitude_velocity_setpoint = 0.0;
 
-                // // go straight for testing collision prevention
-                // random_explore_.goStraight();
-          
-
-                random_explore_.getSetpoint(_velocity_setpoint(0), 
-                                            _velocity_setpoint(1), 
-                                            _altitude_velocity_setpoint, 
-                                            _yaw_setpoint);
-                counter = 0;
-            } 
             // generate collision-free setpoints
-            // auto current_time = this->get_clock()->now();
-            // float dt = (current_time.nanoseconds() - last_time_.nanoseconds()) / 1e9; // seconds
-            generateSetpoints(current_position, current_velocity.xy());
-            // last_time_ = current_time;
-
-            if (action == RandomExplore::Action::ROTATE) {
-                if (counter >= counter_limit * 0.25 && counter <= counter_limit * 0.75) {
-                    _yaw_speed_setpoint = 0.2181662; // Flip direction
-                } else {
-                    _yaw_speed_setpoint = -0.2181662;
-                }
-            }
-
-            publishCollisionConstraints();
-            publishObstacleDistanceFused();
+            // or lock position if the setpoint speed is 0.0
+            generateFeasibleSetpoints(current_position, current_velocity.xy());
         }
 
         // offboard control mode needs to be paired with trajectory setpoint
@@ -133,41 +118,26 @@ OffboardControl::OffboardControl()
     timer_ = this->create_wall_timer(100ms, timerCallback);
 }
 
-/**
- * @brief this comes after the random action generation to 
- * get the feasible and collision free setpoints for acce-
- * -leration and velocity.
- * 
- */
-void OffboardControl::generateSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy)
+void NoMaDControl::getNoMaDSetpoint()
 {   
-    // activate collision prevention by setting cp_dist to positive value
-
-    if (collision_prevention_.is_active()) {
-        auto start_time = std::chrono::steady_clock::now(); // Start time
-        
-        collision_prevention_.modifySetpoint(_velocity_setpoint, _yaw_setpoint);
-        
-        auto end_time = std::chrono::steady_clock::now(); // End time
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-        
-        // RCLCPP_INFO(this->get_logger(), 
-        //             "Collision prevention runtime: %ld microseconds", duration);
+    // lock position when nomad message is stale
+    rclcpp::Duration nomad_data_age(this->get_clock()->now() - _last_time_nomad_received);
+    if (nomad_data_age > NOMAD_TIMEOUT) {
+        _velocity_setpoint = Vector2f({0.0, 0.0});
+        _yaw_speed_setpoint = 0.0;
     }
-    
-	lockPosition(current_pos, current_vel_xy);
-    // Vector2f current_pos_xy  = current_pos.xy();
-    // _position_setpoint(0) = current_pos_xy(0) + _velocity_setpoint(0) * dt;
-    // _position_setpoint(1) = current_pos_xy(1) + _velocity_setpoint(1) * dt;
+    _velocity_setpoint = _nomad_velocity;
+    _yaw_speed_setpoint = _nomad_yaw_speed;
 }
 
-void OffboardControl::VelocitySmoothing(const float alpha)
-{
-    _velocity_setpoint(0) = alpha * _velocity_setpoint(0) + (1.0f - alpha) * _velocity_setpoint_prev(0);
-    _velocity_setpoint(1) = alpha * _velocity_setpoint(1) + (1.0f - alpha) * _velocity_setpoint_prev(1);
+void NoMaDControl::generateFeasibleSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy)
+{   
+    // activate collision prevention by setting cp_dist to positive value
+    if (collision_prevention_.is_active()) {
+        collision_prevention_.modifySetpoint(_velocity_setpoint, _yaw_setpoint);
+    }
 
-    // update the previous velocity setpoint
-    _velocity_setpoint_prev = _velocity_setpoint;
+	lockPosition(current_pos, current_vel_xy);
 }
 
 /**
@@ -177,7 +147,7 @@ void OffboardControl::VelocitySmoothing(const float alpha)
  * @param vel_sp_feedback current horizontal veclocity vx
  * @param dt 
  */
-void OffboardControl::lockPosition(const Vector3f &pos, const Vector2f &vel_sp_feedback)
+void NoMaDControl::lockPosition(const Vector3f &pos, const Vector2f &vel_sp_feedback)
 {
 	const bool moving = _velocity_setpoint.norm_squared() > FLT_EPSILON;
 	const bool position_locked = Vector2f(_position_setpoint).isAllFinite();
@@ -187,7 +157,7 @@ void OffboardControl::lockPosition(const Vector3f &pos, const Vector2f &vel_sp_f
 		_position_setpoint = pos.xy();
 	}
 
-	// open position loop, horizontal again in velocity control mode
+	// open position loop, velocity control mode
 	if (moving && position_locked) {
 		_position_setpoint.setNaN();
 
@@ -198,19 +168,19 @@ void OffboardControl::lockPosition(const Vector3f &pos, const Vector2f &vel_sp_f
 	}
 }
 
-void OffboardControl::arm()
+void NoMaDControl::arm()
 {
     publishVehicleCommand(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
     RCLCPP_INFO(this->get_logger(), "Sent arming command");
 }
 
-void OffboardControl::disarm()
+void NoMaDControl::disarm()
 {
     publishVehicleCommand(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
     RCLCPP_INFO(this->get_logger(), "Sent disarming command");
 }
 
-void OffboardControl::publishVehicleCommand(uint16_t command, float param1, float param2)
+void NoMaDControl::publishVehicleCommand(uint16_t command, float param1, float param2)
 {
     VehicleCommand msg{};
     msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
@@ -226,7 +196,7 @@ void OffboardControl::publishVehicleCommand(uint16_t command, float param1, floa
     vehicle_command_publisher_->publish(msg);
 }
 
-void OffboardControl::publishOffboardControlMode()
+void NoMaDControl::publishOffboardControlMode()
 {
     OffboardControlMode msg{};
     msg.position = true;
@@ -239,7 +209,7 @@ void OffboardControl::publishOffboardControlMode()
     offboard_control_mode_publisher_->publish(msg);
 }
 
-void OffboardControl::publishTrajectorySetpoint()
+void NoMaDControl::publishTrajectorySetpoint()
 {	
     TrajectorySetpoint msg{};
     // RCLCPP_INFO(this->get_logger(), "Position Setpoint: [%f, %f, %f]", _position_setpoint(0), _position_setpoint(1), _altitude_setpoint);
@@ -248,29 +218,13 @@ void OffboardControl::publishTrajectorySetpoint()
     // RCLCPP_INFO(this->get_logger(), "Velocity: [%f, %f, %f]", current_velocity(0), current_velocity(1), current_velocity(2));
     msg.position = {_position_setpoint(0), _position_setpoint(1), _altitude_setpoint};
     msg.velocity = {_velocity_setpoint(0), _velocity_setpoint(1), _altitude_velocity_setpoint};
-    msg.yaw = _yaw_setpoint;
+    msg.yaw = std::numeric_limits<float>::quiet_NaN();
     msg.yawspeed = _yaw_speed_setpoint; // yaw speed is constant
     msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     trajectory_setpoint_publisher_->publish(msg);
 }
 
-void OffboardControl::publishCollisionConstraints()
-{	
-    // get the message from random exploration
-    collision_prevention_.getCollisionConstraints(collision_constraints_msg_);
-    // publish
-    collision_constraints_publisher_->publish(collision_constraints_msg_);
-}
-
-void OffboardControl::publishObstacleDistanceFused()
-{	
-    // get the message from random exploration
-    collision_prevention_.getObstacleDistanceFused(obstacle_distance_fused_msg_);
-    // publish
-    obstacle_distance_fused_publisher_->publish(obstacle_distance_fused_msg_);
-}
-
-void OffboardControl::setCurrentPosition(const float x, const float y, const float z)
+void NoMaDControl::setCurrentPosition(const float x, const float y, const float z)
 {   
     // NED eath fixed frame
     current_position(0) = x;
@@ -278,7 +232,7 @@ void OffboardControl::setCurrentPosition(const float x, const float y, const flo
     current_position(2) = z;
 }
 
-void OffboardControl::setCurrentVelocity(const float vx, const float vy, const float vz)
+void NoMaDControl::setCurrentVelocity(const float vx, const float vy, const float vz)
 {   
     // NED eath fixed frame
     current_velocity(0) = vx;
@@ -291,7 +245,7 @@ int main(int argc, char *argv[])
     std::cout << "Starting offboard control node..." << std::endl;
     setvbuf(stdout, NULL, _IONBF, BUFSIZ);
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<OffboardControl>());
+    rclcpp::spin(std::make_shared<NoMaDControl>());
 
     rclcpp::shutdown();
     return 0;

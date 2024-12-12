@@ -220,6 +220,7 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
 
+    // default settings for model and world
     std::string model_name = "x500_cam_2dlidar";
     std::string world_name = "baylands";
 

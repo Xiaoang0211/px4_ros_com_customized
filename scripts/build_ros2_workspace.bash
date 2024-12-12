@@ -3,7 +3,7 @@ set -e
 
 # parse help argument
 if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
-  echo -e "Usage: build_ros2_workspace.bash [option...] \t This script builds px4_ros_com workspace for ROS 2" >&2
+  echo -e "Usage: build_ros2_workspace.bash [option...] \t This script builds px4_ros_com_customized workspace for ROS 2" >&2
   echo
   echo -e "\t--ros_distro \t\t Set ROS 2 distro name (dashing|eloquent|foxy|galactic|humble|rolling). If not set, the script will set the ROS_DISTRO env variable based on the Ubuntu codename"
   echo -e "\t--ros_path \t\t Set ROS 2 environment setup.bash location. Useful for source installs. If not set, the script sources the environment in /opt/ros/$ROS_DISTRO"
@@ -110,7 +110,7 @@ ROS_REPO_DIR=$(cd "$(dirname "$SCRIPT_DIR")" && pwd)
 ROS_WS_SRC_DIR=$(cd "$(dirname "$ROS_REPO_DIR")" && pwd)
 ROS_WS_DIR=$(cd "$(dirname "$ROS_WS_SRC_DIR")" && pwd)
 
-# build px4_ros_com package
+# build px4_ros_com_customized package
 [ ! -v $verbose ] && colcon_output=$(echo "--event-handlers console_direct+")
 cd $ROS_WS_DIR && colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELWITHDEBINFO --symlink-install $colcon_output
 

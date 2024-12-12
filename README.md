@@ -59,15 +59,15 @@ Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dr
 2. **Launch the Drone to Random Explore Baylands**  
    Launch random exploration using the default model and world (baylands):
    ```bash
-    ros2 launch px4_ros_com offboard_control.launch.xml
+    ros2 launch px4_ros_com_customized offboard_control.launch.xml
    ```
    If you want to specify a different model or world:
    ```bash
-    ros2 launch px4_ros_com offboard_control.launch.xml model_world:=<ModelName_WorldName>
+    ros2 launch px4_ros_com_customized offboard_control.launch.xml model_world:=<ModelName_WorldName>
    ```
    For example:
    ```bash
-    ros2 launch px4_ros_com offboard_control.launch.xml model_world:=x500_cam_2dlidar_walls
+    ros2 launch px4_ros_com_customized offboard_control.launch.xml model_world:=x500_cam_2dlidar_walls
    ```
    **Note:** If the parameter `cp_dist` (the first parameter of `collision_prevention_` in `OffboardControl.cpp`) is positive, collision prevention is activated.
 ---
