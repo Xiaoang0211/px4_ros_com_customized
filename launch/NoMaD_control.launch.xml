@@ -4,7 +4,7 @@
     <!-- Launch the offboard_control node -->
     <node
         pkg="px4_ros_com_customized"
-        exec="NoMaDControl"
+        exec="NoMaD_control"
         name="NoMaD_control"
         output="screen">
     </node>
