@@ -3,7 +3,7 @@ set -e
 
 # parse help argument
 if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
-  echo -e "Usage: build_all.bash [option...] \t This script builds px4_ros_com workspaces for ROS 2 and ROS (1)" >&2
+  echo -e "Usage: build_all.bash [option...] \t This script builds px4_ros_com_customized workspaces for ROS 2 and ROS (1)" >&2
   echo
   echo -e "\t--ros2_distro \t\t Set ROS 2 distro name (dashing|eloquent|foxy|galactic|humble|rolling). If not set, the script will set the ROS_DISTRO env variable based on the Ubuntu codename"
   echo -e "\t--ros2_path \t\t Set ROS 2 environment setup.bash location. Useful for source installs. If not set, the script sources the environment in /opt/ros/$ROS_DISTRO/"
@@ -135,7 +135,7 @@ else
   source $ros2_path
 fi
 
-# build px4_ros_com package
+# build px4_ros_com_customized package
 [ ! -v $verbose ] && colcon_output=$(echo "--event-handlers console_direct+")
 cd $ROS2_WS_DIR && colcon build $colcon_output
 

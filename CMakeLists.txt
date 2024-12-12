@@ -50,26 +50,26 @@ add_subdirectory(src/lib/random_explore)
 # Setup targets #
 #################
 
-# examples/advertisers/drone_advertiser
+# app/advertisers/drone_advertiser
 add_executable(drone_advertiser src/app/advertisers/drone_advertiser.cpp)
 ament_target_dependencies(drone_advertiser rclcpp px4_msgs OpenCV cv_bridge)
 target_link_libraries(drone_advertiser gz-transport${GZ_TRANSPORT_VER}::core)
 install(TARGETS drone_advertiser DESTINATION lib/${PROJECT_NAME})
 
-# examples/offboard/offboard_control
+# app/offboard/offboard_control
 add_executable(offboard_control src/app/offboard/offboard_control.cpp)
 ament_target_dependencies(offboard_control rclcpp px4_msgs)
 # mathlib and matrix are provided by subdirectories, just link here
 target_link_libraries(offboard_control mathlib matrix)
 install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
 
-# examples/offboard/OffboardControl 
+# app/offboard/OffboardControl (offboard control with collision prevention)
 add_executable(OffboardControl src/app/offboard/OffboardControl.cpp)
 ament_target_dependencies(OffboardControl rclcpp px4_msgs)
 target_link_libraries(OffboardControl mathlib matrix CollisionPrevention RandomExplore)
 install(TARGETS OffboardControl DESTINATION lib/${PROJECT_NAME})
 
-# examples/offboard/NoMaD_control
+# app/offboard/NoMaD_control
 add_executable(NoMaD_control src/app/offboard/NoMaD_control.cpp)
 ament_target_dependencies(NoMaD_control rclcpp px4_msgs geometry_msgs)
 target_link_libraries(NoMaD_control mathlib matrix CollisionPrevention)

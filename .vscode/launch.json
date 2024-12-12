@@ -5,7 +5,7 @@
             "name": "Debug OffboardControl",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/home/xiaoang/ws_offboard_control/install/px4_ros_com/lib/px4_ros_com/OffboardControl",
+            "program": "/home/xiaoang/ws_offboard_control/install/px4_ros_com_customized/lib/px4_ros_com_customized/OffboardControl",
             "args": [], // Add command-line arguments if required
             "stopAtEntry": false,
             "cwd": "/home/xiaoang/ws_offboard_control", // Set the working directory
