@@ -72,19 +72,21 @@ private:
     float _yaw_setpoint;
     float _yaw_speed_setpoint;
 
-    bool start_exploring_;
+    bool _start_exploring;
+    bool _collision;
+    int _collision_countdown{0};
     // rclcpp::Time last_time_;                 // Track time for integration
 
     // Collision Prevention
     CollisionPrevention collision_prevention_;
 
     // current drone states
-	Vector3f current_position{0.0, 0.0, 0.0};
-    Vector3f current_velocity{0.0, 0.0, 0.0};
-    float current_yaw;
+	Vector3f _current_position{0.0, 0.0, 0.0};
+    Vector3f _current_velocity{0.0, 0.0, 0.0};
+    float _current_yaw;
 
     // Offboard control state
-    uint64_t offboard_setpoint_counter_;
+    uint64_t _offboard_setpoint_counter;
 
     void getNoMaDSetpoint();
 

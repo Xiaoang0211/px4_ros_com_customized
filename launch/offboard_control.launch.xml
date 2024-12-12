@@ -3,7 +3,7 @@
     <arg name="model_world" default="x500_cam_2dlidar_baylands" />
     <!-- Launch the offboard_control node -->
     <node
-        pkg="px4_ros_com"
+        pkg="px4_ros_com_customized"
         exec="OffboardControl"
         name="offboard_control"
         output="screen">
@@ -11,7 +11,7 @@
 
     <!-- Launch the drone_advertiser node -->
     <node
-        pkg="px4_ros_com"
+        pkg="px4_ros_com_customized"
         exec="drone_advertiser"
         name="drone_advertiser"
         output="screen">

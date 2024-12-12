@@ -22,9 +22,9 @@ using namespace matrix;
 
 NoMaDControl::NoMaDControl() 
     : Node("NoMaD_control"), 
-    start_exploring_(false),
-    offboard_setpoint_counter_(0),
-    collision_prevention_({0.7f, 0.4f, 30.0f, false, 0.95f, 0.5f, 1.0f, 1.8f, 11.98f})
+    _start_exploring(false),
+    _offboard_setpoint_counter(0),
+    collision_prevention_({1.0f, 0.4f, 30.0f, false, 0.95f, 0.5f, 1.0f, 1.8f, 11.98f})
 {   
     qos_profile = rmw_qos_profile_sensor_data;
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -55,10 +55,10 @@ NoMaDControl::NoMaDControl()
 
             // const &q = msg->q;
             const std::array<float, 4> &q = msg->q;
-            current_yaw = Eulerf(Quatf(q.data())).psi(); // yaw angle in radians
+            _current_yaw = Eulerf(Quatf(q.data())).psi(); // yaw angle in radians
 
             // Update current vehicle odometry for CollisionPrevention
-            collision_prevention_.setVehicleOdometry(current_yaw, current_velocity.xy());
+            collision_prevention_.setVehicleOdometry(_current_yaw, _current_velocity.xy());
         });
 
     velocity_setpoint_subscriber_ = this->create_subscription<Twist>(
@@ -66,44 +66,51 @@ NoMaDControl::NoMaDControl()
         [this](const Twist::SharedPtr msg) {
             // receive velocity control commads from NoMaD
             // calculate the velocity in earth-fixed NED frame
-            _nomad_velocity(0) = msg->linear.x * cos(current_yaw);
-            _nomad_velocity(1) = msg->linear.x * sin(current_yaw);
+            _nomad_velocity(0) = msg->linear.x * cos(_current_yaw);
+            _nomad_velocity(1) = msg->linear.x * sin(_current_yaw);
             _nomad_yaw_speed = msg->angular.z;
             _last_time_nomad_received = this->get_clock()->now();
         });
 
-	// last_time_ = this->get_clock()->now();
-
     auto timerCallback = [this]() -> void {
-        if (offboard_setpoint_counter_ == 10) {
+        if (_offboard_setpoint_counter == 10) {
             // Change to Offboard mode after 1 second 
             this->publishVehicleCommand(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
             // Arm the vehicle
             this->arm();
 		}
 
-        if (offboard_setpoint_counter_ >= 11 && offboard_setpoint_counter_ < 100) {
+        if (_offboard_setpoint_counter >= 11 && _offboard_setpoint_counter < 100) {
             // take off to the starting point (0.0, 0.0, -10.0)
             _position_setpoint(0) = 0.0;
             _position_setpoint(1) = 0.0;
             _yaw_setpoint = 0.0;
             _altitude_setpoint = -10.0;
-        } else if (offboard_setpoint_counter_ == 100) {   
-            start_exploring_ = true;
+        } else if (_offboard_setpoint_counter == 100) {   
+            _start_exploring = true;
             RCLCPP_INFO(this->get_logger(), "Start exploring with NoMaD...");
         }
 
         // start velocity control mode for exploring
-        if (start_exploring_) {
-            // overwrite the velocity setpoint with the current NoMaD setpoint
-            getNoMaDSetpoint();
+        if (_start_exploring) {
+            if (_collision) {
+                if (_collision_countdown == 0) {
+                    _collision_countdown = 100;
+                }
+                _collision_countdown -= 1;
+            } else {
+                // overwrite the velocity setpoint with the current NoMaD setpoint
+                if (!_collision) {
+                    getNoMaDSetpoint();
+                }
+            }
 
             // set the vertical velocity to 0.0
             _altitude_velocity_setpoint = 0.0;
 
             // generate collision-free setpoints
             // or lock position if the setpoint speed is 0.0
-            generateFeasibleSetpoints(current_position, current_velocity.xy());
+            generateFeasibleSetpoints(_current_position, _current_velocity.xy());
         }
 
         // offboard control mode needs to be paired with trajectory setpoint
@@ -111,8 +118,8 @@ NoMaDControl::NoMaDControl()
         publishTrajectorySetpoint();
 
         // Increase the setpoint counter before starting with exploring
-        if (offboard_setpoint_counter_ < 101) {
-            offboard_setpoint_counter_++;
+        if (_offboard_setpoint_counter < 101) {
+            _offboard_setpoint_counter++;
         }
     };
     timer_ = this->create_wall_timer(100ms, timerCallback);
@@ -132,12 +139,21 @@ void NoMaDControl::getNoMaDSetpoint()
 
 void NoMaDControl::generateFeasibleSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy)
 {   
+    Vector2f original_vel_setpoint = _velocity_setpoint;
+
     // activate collision prevention by setting cp_dist to positive value
     if (collision_prevention_.is_active()) {
         collision_prevention_.modifySetpoint(_velocity_setpoint, _yaw_setpoint);
     }
 
-	lockPosition(current_pos, current_vel_xy);
+    lockPosition(current_pos, current_vel_xy);
+
+    if (Vector2f(original_vel_setpoint - _velocity_setpoint).norm() > FLT_EPSILON) {
+        _collision = true;
+        RCLCPP_INFO(this->get_logger(), "collision!!!!!!!!!!!!!");
+    } else {
+        _collision = false;
+    }
 }
 
 /**
@@ -213,9 +229,9 @@ void NoMaDControl::publishTrajectorySetpoint()
 {	
     TrajectorySetpoint msg{};
     // RCLCPP_INFO(this->get_logger(), "Position Setpoint: [%f, %f, %f]", _position_setpoint(0), _position_setpoint(1), _altitude_setpoint);
-    // RCLCPP_INFO(this->get_logger(), "Position: [%f, %f, %f]", current_position(0), current_position(1), current_position(2));
+    // RCLCPP_INFO(this->get_logger(), "Position: [%f, %f, %f]", _current_position(0), _current_position(1), _current_position(2));
     // RCLCPP_INFO(this->get_logger(), "Velocity Setpoint: [%f, %f, %f]", _velocity_setpoint(0), _velocity_setpoint(1), _altitude_velocity_setpoint);
-    // RCLCPP_INFO(this->get_logger(), "Velocity: [%f, %f, %f]", current_velocity(0), current_velocity(1), current_velocity(2));
+    // RCLCPP_INFO(this->get_logger(), "Velocity: [%f, %f, %f]", _current_velocity(0), _current_velocity(1), _current_velocity(2));
     msg.position = {_position_setpoint(0), _position_setpoint(1), _altitude_setpoint};
     msg.velocity = {_velocity_setpoint(0), _velocity_setpoint(1), _altitude_velocity_setpoint};
     msg.yaw = std::numeric_limits<float>::quiet_NaN();
@@ -227,17 +243,17 @@ void NoMaDControl::publishTrajectorySetpoint()
 void NoMaDControl::setCurrentPosition(const float x, const float y, const float z)
 {   
     // NED eath fixed frame
-    current_position(0) = x;
-    current_position(1) = y;
-    current_position(2) = z;
+    _current_position(0) = x;
+    _current_position(1) = y;
+    _current_position(2) = z;
 }
 
 void NoMaDControl::setCurrentVelocity(const float vx, const float vy, const float vz)
 {   
     // NED eath fixed frame
-    current_velocity(0) = vx;
-    current_velocity(1) = vy;
-    current_velocity(2) = vz;
+    _current_velocity(0) = vx;
+    _current_velocity(1) = vy;
+    _current_velocity(2) = vz;
 }
 
 int main(int argc, char *argv[])
