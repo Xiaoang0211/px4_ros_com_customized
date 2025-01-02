@@ -10,6 +10,7 @@
 #include <gz/msgs/image.pb.h>
 #include <gz/msgs/camera_info.pb.h>
 #include <gz/transport/Node.hh>
+#include <gz/msgs/clock.pb.h>
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -24,7 +25,8 @@
 class DroneAdvertiser : public rclcpp::Node
 {
 public:
-	DroneAdvertiser(const std::string &cameraInfoTopic, 
+	DroneAdvertiser(const std::string &clockTopic,
+                    const std::string &cameraInfoTopic, 
                     const std::string &imageTopic, 
                     const std::string &laserScanTopic) 
     : Node("drone_advertiser")
@@ -34,6 +36,12 @@ public:
         ros_obstacle_distance_pub_ = this->create_publisher<px4_msgs::msg::ObstacleDistance>("/fmu/in/obstacle_distance", 10);
 
         gz_node_ = std::make_shared<gz::transport::Node>();
+
+        // subscription to clock
+        if (!gz_node_->Subscribe(clockTopic, &DroneAdvertiser::clockCallback, this))
+        {
+            RCLCPP_ERROR(this->get_logger(),"Error subscribing to Gazebo Sim topic: %s", clockTopic.c_str());
+        }
 
         // subscription to camera info
         if (!gz_node_->Subscribe(cameraInfoTopic, &DroneAdvertiser::cameraInfoCallback, this))
@@ -57,6 +65,7 @@ private:
     std::shared_ptr<gz::transport::Node> gz_node_;
     std::string cameraInfoTopic;
     std::string imageTopic;
+    uint64_t sim_system_offset_{0};
 
     // ROS 2 publisher: image, camera info, and obstacle distance
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ros_image_pub_;
@@ -66,15 +75,40 @@ private:
     // Initialize ROS 2 CameraInfo
     sensor_msgs::msg::CameraInfo camera_info_msg_;
 
-    void cameraInfoCallback(const gz::msgs::CameraInfo &msg)
+    /**
+     * @brief 
+     * 
+     * @param clock clock from Gazebo Sim
+     */
+    void clockCallback(const gz::msgs::Clock &clock) 
     {
+        const uint64_t time_us_sim = (clock.sim().sec() * 1000000) + (clock.sim().nsec() / 1000);
+        const uint64_t time_us_sys = (clock.system().sec() * 1000000) + (clock.system().nsec() / 1000);
+
+        sim_system_offset_ = time_us_sys - time_us_sim;
+    }
+
+    void cameraInfoCallback(const gz::msgs::CameraInfo &msg)
+    {   
         // populate the ROS 2 CameraInfo message
-        camera_info_msg_.header.stamp = this->get_clock()->now(); //change the timestamp to the original ones of the gz sim topics
-        // int64_t total_nanoseconds = static_cast<int64_t>(camera_info_msg_.header.stamp.sec) * 1000000000LL + static_cast<int64_t>(camera_info_msg_.header.stamp.nanosec);
-        camera_info_msg_.header.frame_id = "camera_frame";
+        // Convert simulation time to system time
+        uint64_t timestamp_us_sim = msg.header().stamp().sec() * 1000000 + msg.header().stamp().nsec() / 1000;
+        uint64_t timestamp_us_sys = timestamp_us_sim + sim_system_offset_;
+
+        // Assign system time to the ROS 2 CameraInfo message header
+        camera_info_msg_.header.stamp.sec = static_cast<uint32_t>(timestamp_us_sys / 1e6); // Convert to seconds
+        camera_info_msg_.header.stamp.nanosec = static_cast<uint32_t>((timestamp_us_sys % static_cast<uint64_t>(1e6)) * 1000); // Convert to nanoseconds
+
+        std::string frame_id;
+        for (const auto &data : msg.header().data()) {
+            if (data.key() == "frame_id") {
+                camera_info_msg_.header.frame_id = data.value(0);
+                break;
+            }
+        }
         camera_info_msg_.width = msg.width();
         camera_info_msg_.height = msg.height();
-        camera_info_msg_.distortion_model = "plumb_bob";
+        camera_info_msg_.distortion_model = "none";
 
         // Copy distortion coefficients
         camera_info_msg_.d.assign(msg.distortion().k().begin(), msg.distortion().k().end());
@@ -102,37 +136,51 @@ private:
     {
         int cv_type;
 
+        // Determine OpenCV type based on the Gazebo image format
         if (msg.pixel_format_type() == gz::msgs::PixelFormatType::RGB_INT8)
         {
             cv_type = CV_8UC3;
-        } else if (msg.pixel_format_type() == gz::msgs::PixelFormatType::L_INT8)
+        }
+        else if (msg.pixel_format_type() == gz::msgs::PixelFormatType::L_INT8)
         {
             cv_type = CV_8UC1;
-        } else
+        }
+        else
         {
             RCLCPP_ERROR(this->get_logger(), "Unsupported image format!");
             return;
         }
 
+        // Create OpenCV Mat
         cv::Mat image(msg.height(), msg.width(), cv_type, const_cast<char*>(msg.data().data()));
-        
-        // Convert RGB to BGR for OpenCV if necessary
-        if (msg.pixel_format_type() == gz::msgs::PixelFormatType::RGB_INT8) {
-            cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+
+        // Ensure the image is in RGB format
+        if (msg.pixel_format_type() == gz::msgs::PixelFormatType::L_INT8)
+        {
+            // Convert grayscale to RGB
+            cv::cvtColor(image, image, cv::COLOR_GRAY2RGB);
         }
 
-        // Display the image 
-        cv::imshow("Gazebo Camera Stream", image);
-        cv::waitKey(1);
+        // // Display the image (optional, convert to BGR if you want to display image)
+        // cv::imshow("Gazebo Camera Stream", image_bgr);
+        // cv::waitKey(1);
 
-        // Convert OpenCV Mat to ROS 2 Image message using cv_bridge
+        // Create ROS 2 header
         std_msgs::msg::Header header;
-        header.stamp = this->get_clock()->now();
-        header.frame_id = "camera_frame";
+        uint64_t timestamp_us_sim = msg.header().stamp().sec() * 1000000 + msg.header().stamp().nsec() / 1000;
+        uint64_t timestamp_us_sys = timestamp_us_sim + sim_system_offset_;
 
-        sensor_msgs::msg::Image::SharedPtr ros_image = cv_bridge::CvImage(header, "bgr8", image).toImageMsg();
+        header.stamp.sec = static_cast<uint32_t>(timestamp_us_sys / 1e6); // Convert to seconds
+        header.stamp.nanosec = static_cast<uint32_t>((timestamp_us_sys % static_cast<uint64_t>(1e6)) * 1000); // Convert to nanoseconds
+        header.frame_id = "color_image";
+
+        // Convert OpenCV Mat to ROS 2 Image message as RGB
+        sensor_msgs::msg::Image::SharedPtr ros_image = cv_bridge::CvImage(header, "rgb8", image).toImageMsg();
+        
+        // Publish the RGB image
         ros_image_pub_->publish(*ros_image);
     }
+
 
     void laserScanCallback(const gz::msgs::LaserScan &scan)
     {
@@ -178,8 +226,11 @@ private:
 
         // Initialize distances with unknown values
         std::fill(std::begin(obs.distances), std::end(obs.distances), UINT16_MAX);
-
-        obs.timestamp = this->get_clock()->now().nanoseconds(); //timestamp is in nano seconds as the convention in ROS 2
+        
+        // timestamps for the uorb topic ObstacleDistance is in microseconds
+        uint64_t timestamp_us_sim = scan.header().stamp().sec() * 1000000 + scan.header().stamp().nsec() / 1000;
+        uint64_t timestamp_us_sys = timestamp_us_sim + sim_system_offset_;
+        obs.timestamp = timestamp_us_sys;
         obs.frame = px4_msgs::msg::ObstacleDistance::MAV_FRAME_BODY_FRD;
         obs.sensor_type = px4_msgs::msg::ObstacleDistance::MAV_DISTANCE_SENSOR_LASER;
         obs.min_distance = static_cast<uint16_t>(scan.range_min() * 100); // in cm
@@ -221,7 +272,7 @@ int main(int argc, char *argv[])
 	rclcpp::init(argc, argv);
 
     // default settings for model and world
-    std::string model_name = "x500_cam_2dlidar";
+    std::string model_name = "x500_depth";
     std::string world_name = "baylands";
 
     if (argc < 1) {
@@ -231,17 +282,22 @@ int main(int argc, char *argv[])
             model_name = input_arg.substr(0, underscore_pos);
             world_name = input_arg.substr(underscore_pos + 1);
         } else {
-            RCLCPP_ERROR(rclcpp::get_logger("drone_advertiser"), "Invalid argument format. Expected format: <lidar_model_name>_<world_name>");
+            RCLCPP_ERROR(rclcpp::get_logger("drone_advertiser"), "Invalid argument format. Expected format: <model_name>_<world_name>");
             return 1;
         }
     }
     // Gazebo Sim Topics to be subscribed
+    std::string clockTopic = "/world/" + world_name + "/clock";
     std::string cameraInfoTopic = "/camera_info";
-    std::string imageTopic = "/camera";
+    std::string imageTopic = "/rgbd_camera/image";
+    // std::string depthImageTopic = "/rgbd_camera/depth_image";
     std::string laserScanTopic = "/world/"+ world_name + "/model/" + model_name + "_0/model/lidar/link/link/sensor/lidar_2d_v2/scan";
 
     // Instantiate GZROSCameraAdavertiser and start listening
-    auto drone_advertiser = std::make_shared<DroneAdvertiser>(cameraInfoTopic, imageTopic, laserScanTopic);
+    auto drone_advertiser = std::make_shared<DroneAdvertiser>(clockTopic,
+                                                              cameraInfoTopic, 
+                                                              imageTopic, 
+                                                              laserScanTopic);
 	rclcpp::spin(drone_advertiser);
 	rclcpp::shutdown();
 
