@@ -110,7 +110,7 @@ ROS_REPO_DIR=$(cd "$(dirname "$SCRIPT_DIR")" && pwd)
 ROS_WS_SRC_DIR=$(cd "$(dirname "$ROS_REPO_DIR")" && pwd)
 ROS_WS_DIR=$(cd "$(dirname "$ROS_WS_SRC_DIR")" && pwd)
 
-# build px4_ros_com_customized package
+# build px4_ros_com package
 [ ! -v $verbose ] && colcon_output=$(echo "--event-handlers console_direct+")
 cd $ROS_WS_DIR && colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELWITHDEBINFO --symlink-install $colcon_output
 
