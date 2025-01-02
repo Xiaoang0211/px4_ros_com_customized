@@ -271,6 +271,7 @@ void CollisionPrevention::_updateObstacleMap()
 
 		// Update map with obstacle data if the data is not stale
 		uint64_t obs_elapse_time = getElapsedTime(_obstacle_distance.timestamp);
+		RCLCPP_INFO(logger_, "obs_elapse_time: %llu", static_cast<unsigned long long>(obs_elapse_time));
 		if (obs_elapse_time < RANGE_STREAM_TIMEOUT_US && _obstacle_distance.increment > 0.f) {
 			_obstacle_map_body_frame.timestamp = math::max(_obstacle_map_body_frame.timestamp, _obstacle_distance.timestamp);
 
@@ -370,7 +371,7 @@ void CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint_vel, 
 		_setpoint_index = _getDirectionIndexBodyFrame(setpoint_vel);
 		// change setpoint direction slightly (max by _params.cp_guide_ang degrees) to help guide through narrow gaps
 		_setpoint_dir = setpoint_vel.unit_or_zero(); // setpoint direction, unit vector
-		// RCLCPP_INFO(logger_, "Closest obstacle distance: %f", _closest_dist);
+		RCLCPP_INFO(logger_, "Closest obstacle distance: %f", _closest_dist);
 		if (_closest_dist <= _params.cp_dist) {
 			_adaptSetpointDirection(_setpoint_dir, _setpoint_index, setpoint_yaw);
 		}
@@ -441,7 +442,7 @@ float CollisionPrevention::_getScale(const float &reference_distance)
 
 bool CollisionPrevention::_concaveDetection(const Vector2f velocity_dir)
 {
-    const float angle_range = math::radians(90.0f); // ±60° in radians
+    const float angle_range = math::radians(60.0f); // ±60°
     const int num_points = 12; // Number of points to check
     const float step_size = 2 * angle_range / (num_points - 1); // Angular step size
 	const int velocity_bin = _getDirectionIndexBodyFrame(velocity_dir);
@@ -512,7 +513,7 @@ void CollisionPrevention::modifySetpoint(Vector2f& setpoint_vel, float &setpoint
 {	
 	std::unique_lock<std::shared_mutex> lock(data_mutex);
 
-	// safe copy of vehicle odometry
+	// safe copy of current vehicle odometry
 	if (_vehicle_odometry_received) {
 		_vehicle_yaw = current_yaw;
 		_vehicle_vel = current_vel;

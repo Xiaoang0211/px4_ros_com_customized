@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 
 # Define the CollisionPrevention library
 add_library(CollisionPrevention STATIC CollisionPrevention.cpp)
+
 # Specify include directories for the library
 target_include_directories(CollisionPrevention PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
