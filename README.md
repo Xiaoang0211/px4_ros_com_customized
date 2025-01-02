@@ -33,7 +33,7 @@ Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dr
    Ensure you have **ROS 2 Humble Hawksbill** installed on your system. Follow the [official ROS 2 installation guide](https://docs.ros.org/en/humble/Installation.html) for instructions.
 
 3. **Gazebo Sim (Garden)**  
-   Install **Gazebo Sim Garden**, the latest version of Gazebo Sim. Instructions are available in the [official Gazebo Sim documentation](https://gazebosim.org/docs/garden/install).
+   Install **Gazebo Sim Garden**. Instructions are available in the [official Gazebo Sim documentation](https://gazebosim.org/docs/garden/install).
 
 4. **Workspace Setup**  
    Clone and build the necessary repositories:
