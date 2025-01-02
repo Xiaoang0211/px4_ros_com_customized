@@ -41,6 +41,8 @@ OffboardControl::OffboardControl()
     obstacle_distance_subscriber_ = this->create_subscription<ObstacleDistance>(
         "/fmu/in/obstacle_distance", qos,
         [this](const ObstacleDistance::SharedPtr msg) {
+            // convert time stamp to nanoseconds
+            msg->timestamp *= 1000;
             collision_prevention_.setObstacleDistance(*msg);
         });
 
@@ -79,7 +81,8 @@ OffboardControl::OffboardControl()
             _position_setpoint(0) = 0.0;
             _position_setpoint(1) = 0.0;
             _yaw_setpoint = 0.0;
-            _altitude_setpoint = -10.0;
+            _altitude_setpoint = -5.0;
+            // _altitude_setpoint = std::numeric_limits<float>::quiet_NaN();
         } else if (offboard_setpoint_counter_ == 100) {   
             start_exploring_ = true;
             RCLCPP_INFO(this->get_logger(), "Start exploring...");
