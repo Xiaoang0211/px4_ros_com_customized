@@ -4,16 +4,16 @@
     <!-- Launch the offboard_control node -->
     <node
         pkg="px4_ros_com"
-        exec="NoMaD_control"
-        name="NoMaD_control"
+        exec="OffboardControl"
+        name="offboard_control"
         output="screen">
     </node>
 
     <!-- Launch the drone_advertiser node, which publishes LiDAR and camera data -->
     <node
         pkg="px4_ros_com"
-        exec="drone_advertiser"
-        name="drone_advertiser"
+        exec="okvis_advertiser"
+        name="okvis_advertiser"
         output="screen">
         <param name="model_world" value="$(var model_world)" />
     </node>
