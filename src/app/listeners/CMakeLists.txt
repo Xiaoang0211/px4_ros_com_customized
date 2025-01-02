@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.8)
+
+# examples/listeners/sensor_combined_listener
+add_executable(sensor_combined_listener sensor_combined_listener.cpp)
+ament_target_dependencies(sensor_combined_listener rclcpp px4_msgs)
+install(TARGETS sensor_combined_listener DESTINATION lib/${PROJECT_NAME})
+
+# examples/listeners/vehicle_gps_position_listener
+add_executable(vehicle_gps_position_listener vehicle_gps_position_listener.cpp)
+ament_target_dependencies(vehicle_gps_position_listener rclcpp px4_msgs)
+install(TARGETS vehicle_gps_position_listener DESTINATION lib/${PROJECT_NAME})
