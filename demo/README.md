@@ -37,11 +37,21 @@ Two types of **Collision Prevention** policies are implemented to handle concave
 
    ![Non-Concave Space Demo](./nonconcave_demo.gif)
 
+3. **Real-Time Performance**
+
+   The collision prevention module exhibits high computational efficiency, making it well-suited for real-time applications.
+
+   - **Fast Obstacle Map Updates**: The module efficiently updates the obstacle map at a high frequency, as demonstrated in the *Elapse Time Demo* (see figure below).  
+   ![Elapse Time Demo](./gz_sim_cp.png)
+
+   - **Low Latency in Setpoint Calculations**: New setpoints are computed in under 1 ms, ensuring rapid responses to changes in the environment. This is illustrated in the *Non-Concave Space Demo*.
+
+
 ## NoMaD Demo
 
 [NoMaD: Goal Masked Diffusion Policies for Navigation and Exploration](https://arxiv.org/pdf/2310.07896) has been successfully integrated into the current codebase. It can identify road paths, and modify the vehicle yaw angle to align with with road direction. 
 
-However, in certain situations, it selects paths (e.g., the yellow path shown in the demo video) that result in collisions.[demo video](https://drive.google.com/file/d/1Ra0ymba2Z3xgwwJOoG6dh5PbuQMNfDAU/view?usp=sharing)
+However, in certain situations, it selects paths (e.g., the yellow path shown in the demo video) that result in collisions. [Demo Video](https://drive.google.com/file/d/1Ra0ymba2Z3xgwwJOoG6dh5PbuQMNfDAU/view?usp=sharing)
 
 **Potential Quick Solutions:**
 1. Fine-tune the NoMaD model with goal-directed navigation for learning collision-free paths in baylands since NoMaD employs the unified diffusion policy model for both navigation and exploration.
@@ -49,3 +59,9 @@ However, in certain situations, it selects paths (e.g., the yellow path shown in
    the drone always flies away from the obstacle regardless the concavity of the obstacle it faces.
 ---
 
+## Okvis2 (Visual-Inertial SLAM) Demo
+
+[Okvis2](https://github.com/smartroboticslab/okvis2) is a real-time, scalable Visual-Inertial Simultaneous Localization and Mapping (VI-SLAM) system that effectively addresses challenges associated with long and repeated loop closures.
+
+Okvis2 has been successfully deployed in Gazebo Sim.  
+![Okvis Demo](gz_sim_okvis.png)

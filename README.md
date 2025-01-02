@@ -82,6 +82,6 @@ Reach the PX4 development team on the [PX4 Discord Server](https://discord.gg/dr
 ### TODOs
 
 1. Testing the [collision prevention](https://github.com/Xiaoang0211/px4_ros_com_customized/tree/main/src/lib/collision_prevention) module. (Done)
-2. Testing [okvis2](https://github.com/smartroboticslab/okvis2) and visualize point cloud and trajectory in RViz.
+2. Testing [okvis2](https://github.com/smartroboticslab/okvis2) (Done) and visualize point cloud and trajectory in RViz.
 3. Deployment of NoMaD on Gazebo Sim camera stream. (Done)
 
