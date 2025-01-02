@@ -36,8 +36,6 @@ NoMaDControl::NoMaDControl()
     vehicle_command_publisher_ = this->create_publisher<VehicleCommand>(
         "/fmu/in/vehicle_command", 10);
     
-    
-    
     // initialize subscribers
     obstacle_distance_subscriber_ = this->create_subscription<ObstacleDistance>(
         "/fmu/in/obstacle_distance", qos,
@@ -99,10 +97,7 @@ NoMaDControl::NoMaDControl()
                 }
                 _collision_countdown -= 1;
             } else {
-                // overwrite the velocity setpoint with the current NoMaD setpoint
-                if (!_collision) {
-                    getNoMaDSetpoint();
-                }
+                getNoMaDSetpoint();
             }
 
             // set the vertical velocity to 0.0
@@ -134,7 +129,10 @@ void NoMaDControl::getNoMaDSetpoint()
         _yaw_speed_setpoint = 0.0;
     }
     _velocity_setpoint = _nomad_velocity;
+
     _yaw_speed_setpoint = _nomad_yaw_speed;
+    // _yaw_setpoint = NAN;
+    _yaw_setpoint = std::numeric_limits<float>::quiet_NaN();
 }
 
 void NoMaDControl::generateFeasibleSetpoints(const Vector3f &current_pos, const Vector2f &current_vel_xy)
@@ -149,9 +147,11 @@ void NoMaDControl::generateFeasibleSetpoints(const Vector3f &current_pos, const 
     lockPosition(current_pos, current_vel_xy);
 
     if (Vector2f(original_vel_setpoint - _velocity_setpoint).norm() > FLT_EPSILON) {
+        // _yaw_setpoint is locked
         _collision = true;
         RCLCPP_INFO(this->get_logger(), "collision!!!!!!!!!!!!!");
     } else {
+        // _yaw_setpoint remains NAN
         _collision = false;
     }
 }
@@ -234,7 +234,7 @@ void NoMaDControl::publishTrajectorySetpoint()
     // RCLCPP_INFO(this->get_logger(), "Velocity: [%f, %f, %f]", _current_velocity(0), _current_velocity(1), _current_velocity(2));
     msg.position = {_position_setpoint(0), _position_setpoint(1), _altitude_setpoint};
     msg.velocity = {_velocity_setpoint(0), _velocity_setpoint(1), _altitude_velocity_setpoint};
-    msg.yaw = std::numeric_limits<float>::quiet_NaN();
+    msg.yaw = _yaw_setpoint;
     msg.yawspeed = _yaw_speed_setpoint; // yaw speed is constant
     msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     trajectory_setpoint_publisher_->publish(msg);
